@@ -7,7 +7,7 @@ const validCart = {
     { sku: 'SKU-1', name: 'Keyboard', category: 'electronics', unitPrice: 2500, quantity: 2 },
     { sku: 'SKU-2', category: 'accessories', unitPrice: 1000, quantity: 1 },
   ],
-  context: { userId: 'user-1', customerTier: 'standard', currency: 'USD' },
+  context: { customerTier: 'standard', currency: 'USD' },
 };
 
 export async function runPricingScenarios(h: Harness): Promise<void> {

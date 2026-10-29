@@ -9,10 +9,14 @@ import { runPricingScenarios } from './pricing.scenarios';
 import { runConcurrencyScenario, runCouponScenarios } from './coupon.scenarios';
 import { runImmutabilityScenario } from './immutability.scenario';
 import { runBootSmoke } from './bootSmoke.scenario';
+import { loginEvidenceCustomer } from './auth.setup';
+import { ensureEvidenceSecret, evidenceConfig } from './evidenceConfig';
 
-async function listen(): Promise<{ server: Server; baseUrl: string }> {
+ensureEvidenceSecret();
+
+async function listen(uri: string): Promise<{ server: Server; baseUrl: string }> {
   return new Promise((resolve) => {
-    const server = createApp().listen(0, () => {
+    const server = createApp(evidenceConfig(uri)).listen(0, () => {
       const { port } = server.address() as { port: number };
       resolve({ server, baseUrl: `http://127.0.0.1:${port}` });
     });
@@ -28,9 +32,10 @@ async function main(): Promise<number> {
     const uri = replSet.getUri('dynamic_pricing_evidence');
     await connectDatabase(uri);
     await seedDatabase();
-    const started = await listen();
+    const started = await listen(uri);
     server = started.server;
     const h = new Harness(started.baseUrl);
+    h.token = await loginEvidenceCustomer(h);
 
     await runPricingScenarios(h);
     await runCouponScenarios(h);

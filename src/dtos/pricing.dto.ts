@@ -11,7 +11,7 @@ export const cartItemSchema = z.object({
 });
 
 export const pricingContextSchema = z.object({
-  userId: z.string().min(1).max(128),
+  userId: z.string().min(1).max(128).optional(),
   customerTier: z.enum(['standard', 'gold', 'platinum']).optional(),
   currency: z.string().length(3).default('USD'),
   channel: z.string().max(64).optional(),

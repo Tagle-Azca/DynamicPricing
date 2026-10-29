@@ -18,12 +18,21 @@ export interface ScenarioRecord {
 export class Harness {
   readonly records: ScenarioRecord[] = [];
 
+  token: string | undefined;
+
   constructor(public readonly baseUrl: string) {}
 
-  async http(method: string, path: string, body?: unknown): Promise<HttpResult> {
+  async http(
+    method: string,
+    path: string,
+    body?: unknown,
+    token: string | undefined = this.token,
+  ): Promise<HttpResult> {
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    if (token) headers.authorization = `Bearer ${token}`;
     const res = await fetch(`${this.baseUrl}${path}`, {
       method,
-      headers: { 'content-type': 'application/json' },
+      headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const text = await res.text();
