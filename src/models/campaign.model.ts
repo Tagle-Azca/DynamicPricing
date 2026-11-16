@@ -5,6 +5,7 @@ export interface CampaignConditions {
   skus?: string[];
   categories?: string[];
   customerTiers?: string[];
+  regions?: string[];
 }
 
 export interface CampaignDoc {
@@ -26,6 +27,7 @@ const conditionsSchema = new Schema<CampaignConditions>(
     skus: { type: [String], default: undefined },
     categories: { type: [String], default: undefined },
     customerTiers: { type: [String], default: undefined },
+    regions: { type: [String], default: undefined },
   },
   { _id: false },
 );

@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import { ZodError } from 'zod';
 import { AppError } from './AppError';
 
@@ -25,6 +26,9 @@ function toErrorBody(err: unknown): ErrorBody {
       message: 'Validation failed',
       details: err.issues,
     };
+  }
+  if (err instanceof mongoose.Error.ValidationError || err instanceof mongoose.Error.CastError) {
+    return { status: 400, code: 'VALIDATION_ERROR', message: 'Validation failed' };
   }
   if (err instanceof AppError) {
     return { status: err.statusCode, code: err.code, message: err.message, details: err.details };

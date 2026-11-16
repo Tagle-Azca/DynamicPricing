@@ -17,6 +17,7 @@ export function canonicalJson(value: unknown): string {
   return JSON.stringify(canonicalize(value));
 }
 
+// Unkeyed SHA-256: detects accidental or naive edits only, not a writer who can recompute it.
 export function computeChecksum(snapshot: unknown): string {
   return createHash('sha256').update(canonicalJson(snapshot)).digest('hex');
 }

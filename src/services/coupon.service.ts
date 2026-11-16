@@ -12,11 +12,15 @@ function isDuplicateKey(err: unknown): boolean {
 
 async function reserveCoupon(
   req: ApplyCouponRequest,
+  userId: string,
   session: ClientSession,
   now: Date,
 ): Promise<ApplyCouponResponse> {
   const coupon = await Coupon.findOne({ code: req.code }).session(session);
   if (!coupon) throw new AppError(404, 'COUPON_NOT_FOUND', `Coupon ${req.code} not found`);
+  if (coupon.userId && coupon.userId !== userId) {
+    throw new AppError(404, 'COUPON_NOT_FOUND', `Coupon ${req.code} not found`);
+  }
   if (!coupon.isActive || coupon.expiresAt <= now) {
     throw new AppError(409, 'COUPON_UNAVAILABLE', 'Coupon is inactive or expired');
   }
@@ -45,6 +49,7 @@ async function reserveCoupon(
       [
         {
           couponCode: coupon.code,
+          userId,
           cartId: req.cartId,
           discount: discountAmount,
           subtotal: req.subtotal,
@@ -74,13 +79,14 @@ async function reserveCoupon(
 
 export async function applyCoupon(
   req: ApplyCouponRequest,
+  userId: string,
   now: Date = new Date(),
 ): Promise<ApplyCouponResponse> {
   const session = await mongoose.startSession();
   try {
     let response: ApplyCouponResponse | undefined;
     await session.withTransaction(async () => {
-      response = await reserveCoupon(req, session, now);
+      response = await reserveCoupon(req, userId, session, now);
     });
     if (!response) throw new AppError(500, 'INTERNAL_ERROR', 'Transaction produced no result');
     return response;

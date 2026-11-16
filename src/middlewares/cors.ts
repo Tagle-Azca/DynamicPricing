@@ -8,7 +8,7 @@ export function createCors(allowedOrigins: string[]): RequestHandler {
       callback(null, origin === undefined || allowed.has(origin));
     },
     credentials: false,
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Authorization', 'Content-Type'],
     maxAge: 600,
   });

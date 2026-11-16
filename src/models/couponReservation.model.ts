@@ -2,6 +2,7 @@ import { Schema, model } from 'mongoose';
 
 export interface CouponReservationDoc {
   couponCode: string;
+  userId: string;
   cartId: string;
   discount: number;
   subtotal: number;
@@ -11,6 +12,7 @@ export interface CouponReservationDoc {
 const reservationSchema = new Schema<CouponReservationDoc>(
   {
     couponCode: { type: String, required: true },
+    userId: { type: String, required: true },
     cartId: { type: String, required: true },
     discount: { type: Number, required: true, min: 0 },
     subtotal: { type: Number, required: true, min: 0 },

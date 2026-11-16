@@ -1,3 +1,4 @@
+import path from 'node:path';
 import express from 'express';
 import type { Express, Request, Response } from 'express';
 import helmet from 'helmet';
@@ -17,6 +18,7 @@ export function createApp(config: AppConfig): Express {
   app.set('query parser', 'simple');
   app.set('trust proxy', config.trustProxy);
   app.use(helmet());
+  app.use(express.static(path.resolve(__dirname, '..', 'public')));
   app.use(createCors(config.corsOrigins));
   const limiters = createLimiters(config);
   app.use(limiters.global);

@@ -8,6 +8,8 @@ import { writeReport } from './report';
 import { runPricingScenarios } from './pricing.scenarios';
 import { runConcurrencyScenario, runCouponScenarios } from './coupon.scenarios';
 import { runImmutabilityScenario } from './immutability.scenario';
+import { runAdminScenarios } from './admin.scenarios';
+import { runAdminRegionScenarios } from './adminRegions.scenarios';
 import { runBootSmoke } from './bootSmoke.scenario';
 import { loginEvidenceCustomer } from './auth.setup';
 import { ensureEvidenceSecret, evidenceConfig } from './evidenceConfig';
@@ -41,6 +43,8 @@ async function main(): Promise<number> {
     await runCouponScenarios(h);
     await runConcurrencyScenario(h);
     await runImmutabilityScenario(h);
+    await runAdminScenarios(h);
+    await runAdminRegionScenarios(h);
     await runBootSmoke(h, uri);
 
     const file = await writeReport(h.records);
