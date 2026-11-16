@@ -2,7 +2,7 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/', 'node_modules/', 'coverage/'] },
+  { ignores: ['dist/', 'node_modules/', 'coverage/', '.agentteam/'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -10,6 +10,22 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    files: ['public/**/*.js'],
+    languageOptions: {
+      globals: {
+        document: 'readonly',
+        DOMParser: 'readonly',
+        Node: 'readonly',
+        fetch: 'readonly',
+        URL: 'readonly',
+        crypto: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        AbortController: 'readonly',
+      },
     },
   },
 );

@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import type { ZodTypeAny } from 'zod';
 
-type Source = 'body' | 'params';
+type Source = 'body' | 'params' | 'query';
 
 export function validate(source: Source, schema: ZodTypeAny): RequestHandler {
   return (req: Request, _res: Response, next: NextFunction): void => {

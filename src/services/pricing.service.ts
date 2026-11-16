@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { Campaign } from '../models/campaign.model';
+import { AppError } from '../errors/AppError';
 import type { CalculateRequest, PricingResult } from '../dtos/pricing.dto';
 import { evaluateCampaigns } from './pricing.rules';
 import { recordAudit } from './audit.service';
@@ -21,6 +22,9 @@ export async function calculatePricing(
   }).lean();
 
   const result = evaluateCampaigns(campaigns, request.items, request.context);
+  if (!Number.isSafeInteger(result.subtotal)) {
+    throw new AppError(422, 'AMOUNT_TOO_LARGE', 'Cart subtotal exceeds the supported amount');
+  }
   const { auditId, createdAt } = await recordAudit(request, result);
 
   return { auditId, cartId: request.cartId, ...result, calculatedAt: createdAt };

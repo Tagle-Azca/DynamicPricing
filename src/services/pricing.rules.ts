@@ -27,7 +27,7 @@ function evaluateConditions(
   context: PricingContext,
   subtotal: number,
 ): Eligibility {
-  const { minSubtotal, skus, categories, customerTiers } = c.conditions ?? {};
+  const { minSubtotal, skus, categories, customerTiers, regions } = c.conditions ?? {};
   if (minSubtotal !== undefined && subtotal < minSubtotal) {
     return { eligible: false, reason: 'MIN_SUBTOTAL_NOT_MET', base: 0 };
   }
@@ -36,6 +36,9 @@ function evaluateConditions(
     (!context.customerTier || !customerTiers.includes(context.customerTier))
   ) {
     return { eligible: false, reason: 'CUSTOMER_TIER_NOT_ELIGIBLE', base: 0 };
+  }
+  if (regions?.length && (!context.region || !regions.includes(context.region))) {
+    return { eligible: false, reason: 'REGION_NOT_ELIGIBLE', base: 0 };
   }
   if (!skus?.length && !categories?.length) {
     return { eligible: true, base: subtotal };

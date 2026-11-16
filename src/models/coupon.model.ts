@@ -9,6 +9,7 @@ export interface CouponDoc {
   minSubtotal: number;
   expiresAt: Date;
   isActive: boolean;
+  userId?: string;
 }
 
 const couponSchema = new Schema<CouponDoc>(
@@ -21,6 +22,7 @@ const couponSchema = new Schema<CouponDoc>(
     minSubtotal: { type: Number, required: true, default: 0, min: 0 },
     expiresAt: { type: Date, required: true },
     isActive: { type: Boolean, required: true, default: true },
+    userId: { type: String, index: true },
   },
   { timestamps: true, versionKey: false },
 );

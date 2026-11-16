@@ -1,16 +1,29 @@
+import path from 'node:path';
 import express from 'express';
 import type { Express, Request, Response } from 'express';
 import helmet from 'helmet';
-import { apiRouter } from './routes';
+import { createApiRouter } from './routes';
 import { notFound } from './errors/notFound';
 import { errorHandler } from './errors/errorHandler';
 import { databaseState } from './config/database';
+import type { AppConfig } from './config/appConfig';
+import { createCors } from './middlewares/cors';
+import { createLimiters } from './middlewares/rateLimiters';
+import { rejectOperatorKeys } from './middlewares/rejectOperatorKeys';
+import { createTokenService } from './services/token.service';
 
-export function createApp(): Express {
+export function createApp(config: AppConfig): Express {
   const app = express();
   app.disable('x-powered-by');
+  app.set('query parser', 'simple');
+  app.set('trust proxy', config.trustProxy);
   app.use(helmet());
-  app.use(express.json({ limit: '100kb' }));
+  app.use(express.static(path.resolve(__dirname, '..', 'public')));
+  app.use(createCors(config.corsOrigins));
+  const limiters = createLimiters(config);
+  app.use(limiters.global);
+  app.use(express.json({ limit: '100kb', strict: true }));
+  app.use(rejectOperatorKeys);
 
   app.get('/health', (_req: Request, res: Response) => {
     const database = databaseState();
@@ -18,7 +31,8 @@ export function createApp(): Express {
       data: { status: database === 'connected' ? 'ok' : 'degraded', database },
     });
   });
-  app.use('/api/v1', apiRouter);
+  const tokens = createTokenService(config);
+  app.use('/api/v1', createApiRouter({ tokens, limiters, bcryptRounds: config.bcryptRounds }));
   app.use(notFound);
   app.use(errorHandler);
   return app;

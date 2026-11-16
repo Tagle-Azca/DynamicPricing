@@ -1,5 +1,6 @@
 import type { Server } from 'node:http';
 import { loadEnv } from './config/env';
+import { appConfigFromEnv } from './config/appConfig';
 import { connectDatabase, disconnectDatabase } from './config/database';
 import { initModels } from './models';
 import { createApp } from './app';
@@ -16,7 +17,7 @@ async function main(): Promise<void> {
   const env = loadEnv();
   await connectDatabase(env.MONGODB_URI);
   await initModels();
-  const server = createApp().listen(env.PORT, () => {
+  const server = createApp(appConfigFromEnv(env)).listen(env.PORT, () => {
     console.log(`Server listening on port ${env.PORT}`);
   });
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {

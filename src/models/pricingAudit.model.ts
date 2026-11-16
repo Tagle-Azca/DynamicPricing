@@ -48,6 +48,7 @@ const queryOps = [
 for (const op of queryOps) {
   pricingAuditSchema.pre(op, rejectMutation);
 }
+pricingAuditSchema.index({ 'context.userId': 1, createdAt: -1 });
 pricingAuditSchema.pre('bulkWrite', rejectMutation);
 pricingAuditSchema.pre('updateOne', { document: true, query: false }, rejectMutation);
 pricingAuditSchema.pre('deleteOne', { document: true, query: false }, rejectMutation);

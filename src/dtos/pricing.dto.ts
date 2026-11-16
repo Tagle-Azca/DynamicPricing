@@ -6,15 +6,21 @@ export const cartItemSchema = z.object({
   sku: z.string().min(1).max(64),
   name: z.string().max(200).optional(),
   category: z.string().min(1).max(64),
-  unitPrice: cents,
-  quantity: z.number().int().min(1),
+  unitPrice: cents.max(1_000_000_000),
+  quantity: z.number().int().min(1).max(10000),
 });
 
 export const pricingContextSchema = z.object({
-  userId: z.string().min(1).max(128),
+  userId: z.string().min(1).max(128).optional(),
   customerTier: z.enum(['standard', 'gold', 'platinum']).optional(),
   currency: z.string().length(3).default('USD'),
   channel: z.string().max(64).optional(),
+  region: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z]{2}$/)
+    .transform((v) => v.toUpperCase())
+    .optional(),
 });
 
 export const calculateRequestSchema = z.object({
