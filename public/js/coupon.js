@@ -50,6 +50,7 @@ export function initCoupon(cart, pricing) {
 
   $('coupon-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (button.disabled) return;
     const code = $('coupon-code').value.trim();
     if (!code) return setStatus(status, 'Enter a coupon code.', 'error');
     if (cart.isEmpty())

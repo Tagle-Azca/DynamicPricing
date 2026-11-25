@@ -10,6 +10,8 @@ import { initCoupons, loadCoupons } from './admin-coupons.js';
 import { initProducts, loadProducts } from './admin-products.js';
 import { initMap, loadMap, clearMap } from './admin-map.js';
 import { initAudits, loadAudits } from './admin-audits.js';
+import { initAdminTabs } from './admin-tabs.js';
+import { initCreateToggles } from './admin-create.js';
 
 const views = ['auth', 'shop', 'admin'];
 
@@ -32,6 +34,8 @@ initMap(loadCampaigns);
 initCoupons();
 initProducts(() => catalog.load());
 initAudits();
+initAdminTabs();
+initCreateToggles();
 
 let adminLoaded = false;
 

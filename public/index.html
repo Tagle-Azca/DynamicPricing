@@ -46,8 +46,22 @@
               Registering requires at least 12 characters (72 bytes max).
             </p>
             <div class="row">
-              <button type="submit" id="login-btn" class="btn" data-action="login">Log in</button>
-              <button type="button" id="register-btn" class="btn secondary" data-action="register">
+              <button
+                type="submit"
+                id="login-btn"
+                class="btn"
+                data-action="login"
+                data-busy-label="Logging in..."
+              >
+                Log in
+              </button>
+              <button
+                type="button"
+                id="register-btn"
+                class="btn secondary"
+                data-action="register"
+                data-busy-label="Creating account..."
+              >
                 Register as customer
               </button>
             </div>
@@ -66,7 +80,6 @@
 
         <div class="card">
           <h2>Cart</h2>
-          <p class="muted">Cart id: <code id="cart-id"></code></p>
           <ul id="cart" class="list"></ul>
           <p id="cart-empty" class="muted">The cart is empty. Add a product.</p>
           <div class="row">
@@ -106,180 +119,304 @@
             <label for="coupon-code">Coupon code</label>
             <div class="row">
               <input id="coupon-code" name="code" type="text" maxlength="64" autocomplete="off" />
-              <button type="submit" id="coupon-btn" class="btn">Apply</button>
+              <button type="submit" id="coupon-btn" class="btn" data-busy-label="Applying...">
+                Apply
+              </button>
             </div>
           </form>
           <p id="coupon-status" class="status" role="alert"></p>
           <div id="coupon-result" aria-live="polite"></div>
+          <details id="price-details" class="small-details" hidden>
+            <summary>Details</summary>
+            <dl class="meta">
+              <dt>Cart id</dt>
+              <dd><code id="cart-id"></code></dd>
+              <dt>Audit id</dt>
+              <dd><code id="audit-id"></code></dd>
+            </dl>
+          </details>
         </div>
       </section>
 
       <section id="view-admin" aria-label="Admin" hidden>
-        <div class="card">
-          <h2>Discount map</h2>
-          <p class="hint">Hover, focus or click a country to see and edit its discounts.</p>
-          <ul class="legend" aria-label="Map legend">
-            <li><span class="swatch swatch-active" aria-hidden="true"></span>Active discount</li>
-            <li>
-              <span class="swatch swatch-inactive" aria-hidden="true"></span>Only inactive or
-              expired
-            </li>
-            <li><span class="swatch swatch-none" aria-hidden="true"></span>No discounts</li>
-          </ul>
-          <p id="map-status" class="status" role="alert"></p>
-          <div class="map-box">
-            <div id="map" class="map"></div>
-            <div id="map-tip" class="map-tip" role="tooltip" hidden></div>
+        <div class="subtabs" role="tablist" aria-label="Admin sections">
+          <button
+            type="button"
+            class="subtab"
+            role="tab"
+            id="subtab-map"
+            aria-controls="panel-map"
+            aria-selected="true"
+          >
+            Map &amp; Campaigns
+          </button>
+          <button
+            type="button"
+            class="subtab"
+            role="tab"
+            id="subtab-coupons"
+            aria-controls="panel-coupons"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            Coupons
+          </button>
+          <button
+            type="button"
+            class="subtab"
+            role="tab"
+            id="subtab-products"
+            aria-controls="panel-products"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            Products
+          </button>
+          <button
+            type="button"
+            class="subtab"
+            role="tab"
+            id="subtab-audits"
+            aria-controls="panel-audits"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            Audits
+          </button>
+        </div>
+
+        <div id="panel-map" role="tabpanel" aria-labelledby="subtab-map" class="panel">
+          <div class="card">
+            <h2>Discount map</h2>
+            <p class="hint">Hover, focus or click a country to see and edit its discounts.</p>
+            <ul class="legend" aria-label="Map legend">
+              <li><span class="swatch swatch-active" aria-hidden="true"></span>Active discount</li>
+              <li>
+                <span class="swatch swatch-inactive" aria-hidden="true"></span>Only inactive or
+                expired
+              </li>
+              <li><span class="swatch swatch-none" aria-hidden="true"></span>No discounts</li>
+            </ul>
+            <p id="map-status" class="status" role="alert"></p>
+            <div class="map-box">
+              <div id="map" class="map"></div>
+              <div id="map-tip" class="map-tip" role="tooltip" hidden></div>
+            </div>
+            <p id="map-global" class="hint"></p>
+            <div
+              id="map-panel"
+              class="map-panel"
+              role="region"
+              aria-label="Edit country"
+              hidden
+            ></div>
           </div>
-          <p id="map-global" class="hint"></p>
-          <div
-            id="map-panel"
-            class="map-panel"
-            role="region"
-            aria-label="Edit country"
-            hidden
-          ></div>
-        </div>
 
-        <div class="card">
-          <h2>Campaigns</h2>
-          <p id="campaigns-status" class="status" role="alert"></p>
-          <div class="table-wrap"><table id="campaigns-table"></table></div>
-          <details class="create">
-            <summary>New campaign</summary>
-            <form id="campaign-form" class="form-grid" novalidate>
-              <p class="hint span">
-                Amounts are integer cents. Percentage value is 0 to 100. Leave regions empty for a
-                global campaign.
-              </p>
-              <div class="field">
-                <label for="c-code">Code</label
-                ><input id="c-code" name="code" required maxlength="64" />
+          <div class="card">
+            <div class="card-head">
+              <h2>Campaigns</h2>
+              <button
+                type="button"
+                class="btn"
+                data-create-toggle
+                aria-expanded="false"
+                aria-controls="campaign-new"
+              >
+                + New campaign
+              </button>
+              <div id="campaign-new" class="create-panel" hidden>
+                <form id="campaign-form" class="form-grid" novalidate>
+                  <p class="hint span">
+                    Amounts are integer cents. Percentage value is 0 to 100. Leave regions empty for
+                    a global campaign.
+                  </p>
+                  <div class="field">
+                    <label for="c-code">Code</label
+                    ><input id="c-code" name="code" required maxlength="64" />
+                  </div>
+                  <div class="field">
+                    <label for="c-name">Name</label
+                    ><input id="c-name" name="name" required maxlength="200" />
+                  </div>
+                  <div class="field">
+                    <label for="c-type">Type</label>
+                    <select id="c-type" name="type">
+                      <option>percentage</option>
+                      <option>fixed</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="c-value">Value</label
+                    ><input id="c-value" name="value" type="number" min="0" step="1" required />
+                  </div>
+                  <div class="field">
+                    <label for="c-starts">Starts at</label
+                    ><input id="c-starts" name="startsAt" type="datetime-local" required />
+                  </div>
+                  <div class="field">
+                    <label for="c-ends">Ends at</label
+                    ><input id="c-ends" name="endsAt" type="datetime-local" required />
+                  </div>
+                  <div class="field span">
+                    <label for="c-regions">Regions (optional, e.g. MX, US)</label
+                    ><input id="c-regions" name="regions" />
+                  </div>
+                  <div class="span row">
+                    <button type="submit" class="btn" data-busy-label="Creating...">
+                      Create campaign
+                    </button>
+                    <button type="reset" class="btn secondary">Cancel</button>
+                  </div>
+                </form>
               </div>
-              <div class="field">
-                <label for="c-name">Name</label
-                ><input id="c-name" name="name" required maxlength="200" />
-              </div>
-              <div class="field">
-                <label for="c-type">Type</label>
-                <select id="c-type" name="type">
-                  <option>percentage</option>
-                  <option>fixed</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="c-value">Value</label
-                ><input id="c-value" name="value" type="number" min="0" step="1" required />
-              </div>
-              <div class="field">
-                <label for="c-starts">Starts at</label
-                ><input id="c-starts" name="startsAt" type="datetime-local" required />
-              </div>
-              <div class="field">
-                <label for="c-ends">Ends at</label
-                ><input id="c-ends" name="endsAt" type="datetime-local" required />
-              </div>
-              <div class="field span">
-                <label for="c-regions">Regions (optional, e.g. MX, US)</label
-                ><input id="c-regions" name="regions" />
-              </div>
-              <div class="span"><button type="submit" class="btn">Create campaign</button></div>
-            </form>
-          </details>
-        </div>
-
-        <div class="card">
-          <h2>Coupons</h2>
-          <p id="coupons-status" class="status" role="alert"></p>
-          <div class="table-wrap"><table id="coupons-table"></table></div>
-          <details class="create">
-            <summary>New coupon</summary>
-            <form id="coupon-create-form" class="form-grid" novalidate>
-              <div class="field">
-                <label for="k-code">Code</label
-                ><input id="k-code" name="code" required maxlength="64" />
-              </div>
-              <div class="field">
-                <label for="k-type">Type</label>
-                <select id="k-type" name="discountType">
-                  <option>percentage</option>
-                  <option>fixed</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="k-value">Value</label
-                ><input id="k-value" name="value" type="number" min="0" step="1" required />
-              </div>
-              <div class="field">
-                <label for="k-uses">Max uses</label
-                ><input id="k-uses" name="maxUses" type="number" min="1" step="1" required />
-              </div>
-              <div class="field">
-                <label for="k-per-user">Per-user limit (default 1)</label
-                ><input
-                  id="k-per-user"
-                  name="perUserLimit"
-                  type="number"
-                  min="1"
-                  max="1000"
-                  step="1"
-                />
-              </div>
-              <div class="field">
-                <label for="k-exp">Expires at</label
-                ><input id="k-exp" name="expiresAt" type="datetime-local" required />
-              </div>
-              <div class="field">
-                <label for="k-user">User id (optional)</label
-                ><input id="k-user" name="userId" maxlength="128" />
-              </div>
-              <div class="span"><button type="submit" class="btn">Create coupon</button></div>
-            </form>
-          </details>
-        </div>
-
-        <div class="card">
-          <h2>Products</h2>
-          <p id="products-status" class="status" role="alert"></p>
-          <div class="table-wrap"><table id="products-table"></table></div>
-          <details class="create">
-            <summary>New product</summary>
-            <form id="product-create-form" class="form-grid" novalidate>
-              <p class="hint span">Price is an integer number of cents.</p>
-              <div class="field">
-                <label for="p-sku">SKU</label
-                ><input id="p-sku" name="sku" required maxlength="64" />
-              </div>
-              <div class="field">
-                <label for="p-name">Name</label
-                ><input id="p-name" name="name" required maxlength="200" />
-              </div>
-              <div class="field">
-                <label for="p-category">Category</label
-                ><input id="p-category" name="category" required maxlength="64" />
-              </div>
-              <div class="field">
-                <label for="p-price">Price (cents)</label
-                ><input id="p-price" name="unitPrice" type="number" min="0" step="1" required />
-              </div>
-              <div class="field">
-                <label for="p-currency">Currency (default USD)</label
-                ><input id="p-currency" name="currency" maxlength="3" />
-              </div>
-              <div class="span"><button type="submit" class="btn">Create product</button></div>
-            </form>
-          </details>
-        </div>
-
-        <details class="card audits">
-          <summary>Audits</summary>
-          <div class="row">
-            <button type="button" id="export-json" class="btn secondary">Export JSON</button>
-            <button type="button" id="export-csv" class="btn secondary">Export CSV</button>
+            </div>
+            <p id="campaigns-status" class="status" role="alert"></p>
+            <div class="table-wrap"><table id="campaigns-table"></table></div>
           </div>
-          <p id="audits-status" class="status" role="alert"></p>
-          <div class="table-wrap"><table id="audits-table"></table></div>
-        </details>
+        </div>
+
+        <div
+          id="panel-coupons"
+          role="tabpanel"
+          aria-labelledby="subtab-coupons"
+          class="panel"
+          hidden
+        >
+          <div class="card">
+            <div class="card-head">
+              <h2>Coupons</h2>
+              <button
+                type="button"
+                class="btn"
+                data-create-toggle
+                aria-expanded="false"
+                aria-controls="coupon-new"
+              >
+                + New coupon
+              </button>
+              <div id="coupon-new" class="create-panel" hidden>
+                <form id="coupon-create-form" class="form-grid" novalidate>
+                  <div class="field">
+                    <label for="k-code">Code</label
+                    ><input id="k-code" name="code" required maxlength="64" />
+                  </div>
+                  <div class="field">
+                    <label for="k-type">Type</label>
+                    <select id="k-type" name="discountType">
+                      <option>percentage</option>
+                      <option>fixed</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="k-value">Value</label
+                    ><input id="k-value" name="value" type="number" min="0" step="1" required />
+                  </div>
+                  <div class="field">
+                    <label for="k-uses">Max uses</label
+                    ><input id="k-uses" name="maxUses" type="number" min="1" step="1" required />
+                  </div>
+                  <div class="field">
+                    <label for="k-per-user">Per-user limit (default 1)</label
+                    ><input
+                      id="k-per-user"
+                      name="perUserLimit"
+                      type="number"
+                      min="1"
+                      max="1000"
+                      step="1"
+                    />
+                  </div>
+                  <div class="field">
+                    <label for="k-exp">Expires at</label
+                    ><input id="k-exp" name="expiresAt" type="datetime-local" required />
+                  </div>
+                  <div class="field">
+                    <label for="k-user">User id (optional)</label
+                    ><input id="k-user" name="userId" maxlength="128" />
+                  </div>
+                  <div class="span row">
+                    <button type="submit" class="btn" data-busy-label="Creating...">
+                      Create coupon
+                    </button>
+                    <button type="reset" class="btn secondary">Cancel</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+            <p id="coupons-status" class="status" role="alert"></p>
+            <div class="table-wrap"><table id="coupons-table"></table></div>
+          </div>
+        </div>
+
+        <div
+          id="panel-products"
+          role="tabpanel"
+          aria-labelledby="subtab-products"
+          class="panel"
+          hidden
+        >
+          <div class="card">
+            <div class="card-head">
+              <h2>Products</h2>
+              <button
+                type="button"
+                class="btn"
+                data-create-toggle
+                aria-expanded="false"
+                aria-controls="product-new"
+              >
+                + New product
+              </button>
+              <div id="product-new" class="create-panel" hidden>
+                <form id="product-create-form" class="form-grid" novalidate>
+                  <p class="hint span">Price is an integer number of cents.</p>
+                  <div class="field">
+                    <label for="p-sku">SKU</label
+                    ><input id="p-sku" name="sku" required maxlength="64" />
+                  </div>
+                  <div class="field">
+                    <label for="p-name">Name</label
+                    ><input id="p-name" name="name" required maxlength="200" />
+                  </div>
+                  <div class="field">
+                    <label for="p-category">Category</label
+                    ><input id="p-category" name="category" required maxlength="64" />
+                  </div>
+                  <div class="field">
+                    <label for="p-price">Price (cents)</label
+                    ><input id="p-price" name="unitPrice" type="number" min="0" step="1" required />
+                  </div>
+                  <div class="field">
+                    <label for="p-currency">Currency (default USD)</label
+                    ><input id="p-currency" name="currency" maxlength="3" />
+                  </div>
+                  <div class="span row">
+                    <button type="submit" class="btn" data-busy-label="Creating...">
+                      Create product
+                    </button>
+                    <button type="reset" class="btn secondary">Cancel</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+            <p id="products-status" class="status" role="alert"></p>
+            <div class="table-wrap"><table id="products-table"></table></div>
+          </div>
+        </div>
+
+        <div id="panel-audits" role="tabpanel" aria-labelledby="subtab-audits" class="panel" hidden>
+          <div class="card">
+            <div class="card-head">
+              <h2>Audits</h2>
+              <div class="row">
+                <button type="button" id="export-json" class="btn secondary">Export JSON</button>
+                <button type="button" id="export-csv" class="btn secondary">Export CSV</button>
+              </div>
+            </div>
+            <p id="audits-status" class="status" role="alert"></p>
+            <div class="table-wrap"><table id="audits-table"></table></div>
+          </div>
+        </div>
       </section>
     </main>
 

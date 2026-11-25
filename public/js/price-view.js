@@ -1,4 +1,5 @@
 import { $, clear, h, money } from './dom.js';
+import { skippedSection } from './skipped-rules.js';
 
 function ruleValue(r) {
   return r.type === 'percentage' ? `${r.value}%` : money(r.value);
@@ -21,15 +22,6 @@ function appliedList(rules) {
         h('span', { class: 'num discount', text: `-${money(a.discount)}` }),
       ),
     ),
-  );
-}
-
-function skippedList(rules) {
-  if (!rules.length) return h('p', { class: 'muted', text: 'None.' });
-  return h(
-    'ul',
-    { class: 'list' },
-    rules.map((s) => h('li', { class: 'item muted', text: `${s.code}: ${s.reason}` })),
   );
 }
 
@@ -63,11 +55,14 @@ export function renderResult(r) {
   box.append(
     totals(r),
     section('Applied campaigns', appliedList(r.appliedRules)),
-    section('Skipped rules', skippedList(r.skippedRules)),
-    h('p', { class: 'muted' }, 'Audit id: ', h('code', { text: r.auditId })),
+    skippedSection(r.skippedRules),
   );
+  $('audit-id').textContent = r.auditId;
+  $('price-details').hidden = false;
 }
 
 export function clearResult() {
   clear($('breakdown'));
+  $('price-details').hidden = true;
+  $('audit-id').textContent = '';
 }

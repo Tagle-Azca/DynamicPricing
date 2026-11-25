@@ -6,4 +6,5 @@ later change that reverses a decision is a new record that supersedes it.
 
 | Record                                                        | Type     | Status   | Summary                                                                     | Links |
 | ------------------------------------------------------------- | -------- | -------- | --------------------------------------------------------------------------- | ----- |
+| [0002-ui-polish](0002-ui-polish.md)                           | refactor | accepted | Polish the web UI: plain-language rules, admin tabs, confirmations          |       |
 | [0001-server-catalog-coupons](0001-server-catalog-coupons.md) | security | accepted | Server-side catalog, coupon lifecycle and per-user cap, coupon in calculate |       |

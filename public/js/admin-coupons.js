@@ -1,6 +1,7 @@
 import { $, formatDate, h, money, renderTable, setBusy, setStatus } from './dom.js';
 import { request, describeError } from './api.js';
 import { compact, int, toIso } from './admin-form.js';
+import { askConfirm } from './confirm.js';
 
 const status = () => $('coupons-status');
 
@@ -29,7 +30,7 @@ export async function loadCoupons() {
               class: 'btn small secondary',
               'aria-label': `${c.isActive ? 'Deactivate' : 'Activate'} coupon ${c.code}`,
               text: c.isActive ? 'Deactivate' : 'Activate',
-              onClick: (e) => toggle(c, e.currentTarget),
+              onClick: (e) => guarded(c, e.currentTarget),
             }),
         },
       ],
@@ -40,6 +41,11 @@ export async function loadCoupons() {
   } catch (err) {
     setStatus(status(), describeError(err), 'error');
   }
+}
+
+function guarded(c, button) {
+  if (!c.isActive) return toggle(c, button);
+  askConfirm(button, `Deactivate coupon ${c.code}?`, 'Deactivate', () => toggle(c, button));
 }
 
 async function toggle(c, button) {

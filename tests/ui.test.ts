@@ -33,7 +33,16 @@ describe('static UI', () => {
   });
 
   it('serves the new modules and the admin products section', async () => {
-    for (const file of ['catalog.js', 'errors.js', 'admin-products.js', 'price-view.js']) {
+    for (const file of [
+      'catalog.js',
+      'errors.js',
+      'admin-products.js',
+      'price-view.js',
+      'skipped-rules.js',
+      'confirm.js',
+      'admin-tabs.js',
+      'admin-create.js',
+    ]) {
       expect((await request(app).get(`/js/${file}`)).status).toBe(200);
     }
     const html = read('index.html');
@@ -89,5 +98,75 @@ describe('UI contract', () => {
     }
     expect(read('index.html')).not.toMatch(/<script(?![^>]*\bsrc=)/);
     expect(read('index.html')).not.toMatch(/\sstyle=|\son[a-z]+=/);
+  });
+});
+
+describe('UI polish', () => {
+  const html = read('index.html');
+  const js = readdirSync(join(PUBLIC, 'js')).filter((f) => f.endsWith('.js'));
+
+  it('[DoD-1] labels skipped rules in plain language inside a collapsed section', () => {
+    const src = read('js/skipped-rules.js');
+    for (const code of [
+      'NON_STACKABLE_RULE_ALREADY_APPLIED',
+      'MIN_SUBTOTAL_NOT_MET',
+      'CUSTOMER_TIER_NOT_ELIGIBLE',
+      'REGION_NOT_ELIGIBLE',
+    ]) {
+      expect(src).toContain(code);
+    }
+    expect(src).toContain("Why weren't other discounts applied?");
+    expect(src).toContain('REASONS[reason] || reason');
+    expect(src).not.toMatch(/\bopen\b/);
+    expect(read('js/price-view.js')).not.toContain('${s.code}: ${s.reason}');
+  });
+
+  it('[DoD-2] splits admin into four accessible tabs with matching panels', () => {
+    expect(html).toContain('role="tablist"');
+    for (const name of ['map', 'coupons', 'products', 'audits']) {
+      expect(html).toContain(`id="subtab-${name}"`);
+      expect(html).toMatch(new RegExp(`id="panel-${name}"\\s+role="tabpanel"`));
+    }
+    expect(html.match(/role="tab"/g)).toHaveLength(4);
+    expect(read('js/admin-tabs.js')).toContain('ArrowRight');
+    expect(read('js/main.js')).toContain('initAdminTabs()');
+  });
+
+  it('[DoD-3] opens create forms from visible "+ New" buttons', () => {
+    for (const label of ['campaign', 'coupon', 'product']) {
+      expect(html).toContain(`+ New ${label}`);
+    }
+    expect(html.match(/data-create-toggle/g)).toHaveLength(3);
+    expect(html).not.toContain('<summary>New');
+    expect(read('js/admin-create.js')).toContain("'reset'");
+  });
+
+  it('[DoD-4] confirms deactivation and region removal in-page', () => {
+    expect(read('js/confirm.js')).not.toContain('window.confirm');
+    for (const file of ['admin-campaigns', 'admin-coupons', 'admin-products', 'map-panel']) {
+      expect(read(`js/${file}.js`)).toContain('askConfirm(');
+    }
+    for (const file of js) expect(read(`js/${file}`)).not.toMatch(/\bconfirm\(/);
+  });
+
+  it('[DoD-5] moves cart and audit ids into a Details disclosure', () => {
+    const details = html.slice(html.indexOf('id="price-details"'));
+    expect(details).toContain('id="cart-id"');
+    expect(details).toContain('id="audit-id"');
+    expect(html).not.toContain('Cart id: <code');
+    expect(read('js/price-view.js')).not.toContain('Audit id:');
+  });
+
+  it('[DoD-6] disables buttons and shows a busy label while a request runs', () => {
+    expect(read('js/dom.js')).toContain('busyLabel');
+    expect(html.match(/data-busy-label/g)!.length).toBeGreaterThanOrEqual(6);
+    expect(read('js/coupon.js')).toContain('button.disabled');
+    expect(read('js/auth.js')).toContain('buttons[0].disabled');
+  });
+
+  it('[DoD-7] keeps admin tables in their own scroll container', () => {
+    const css = read('styles.css');
+    expect(css).toMatch(/\.table-wrap\s*{\s*overflow-x: auto/);
+    expect(css).toMatch(/\.subtabs\s*{[^}]*overflow-x: auto/);
   });
 });

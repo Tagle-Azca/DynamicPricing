@@ -2,6 +2,7 @@ import { $, h, money, renderTable, setBusy, setStatus } from './dom.js';
 import { request } from './api.js';
 import { describeError } from './errors.js';
 import { compact, int } from './admin-form.js';
+import { askConfirm } from './confirm.js';
 
 const status = () => $('products-status');
 let onChanged = () => {};
@@ -17,6 +18,12 @@ async function patch(p, body, button) {
     setBusy(button, false);
     setStatus(status(), describeError(err), 'error');
   }
+}
+
+function toggle(p, button) {
+  const run = () => patch(p, { isActive: !p.isActive }, button);
+  if (!p.isActive) return run();
+  askConfirm(button, `Deactivate product ${p.sku}?`, 'Deactivate', run);
 }
 
 function priceEditor(p) {
@@ -38,6 +45,7 @@ function priceEditor(p) {
       type: 'button',
       class: 'btn small',
       text: 'Save price',
+      'data-busy-label': 'Saving...',
       'aria-label': `Save price for ${p.sku}`,
       onClick: (e) => {
         const value = input.valueAsNumber;
@@ -71,7 +79,7 @@ export async function loadProducts() {
               class: 'btn small secondary',
               'aria-label': `${p.isActive ? 'Deactivate' : 'Activate'} product ${p.sku}`,
               text: p.isActive ? 'Deactivate' : 'Activate',
-              onClick: (e) => patch(p, { isActive: !p.isActive }, e.currentTarget),
+              onClick: (e) => toggle(p, e.currentTarget),
             }),
         },
       ],

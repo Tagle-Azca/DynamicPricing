@@ -144,9 +144,90 @@ main:focus {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: start;
 }
-#view-admin {
+#view-admin,
+.panel {
   display: grid;
   gap: 1rem;
+}
+.subtabs {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+}
+.subtab {
+  flex: none;
+  min-height: 44px;
+  padding: 0.25rem 1rem;
+  font: inherit;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+}
+.subtab[aria-selected='true'] {
+  color: var(--text);
+  font-weight: 700;
+  border-bottom-color: var(--accent);
+}
+.card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+.card-head h2 {
+  margin: 0;
+}
+.create-panel {
+  flex-basis: 100%;
+  padding: 0.5rem 1rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+details summary {
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+details.small-details {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+}
+.meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  color: var(--muted);
+}
+.meta dd {
+  margin: 0;
+}
+.skipped {
+  margin-top: 1rem;
+}
+.skipped .item {
+  align-items: baseline;
+}
+.confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.confirm-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.btn.danger {
+  color: var(--accent-text);
+  background: var(--error);
+  border-color: var(--error);
 }
 .card {
   background: var(--surface);
@@ -274,6 +355,7 @@ input.qty {
 }
 .item {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 0;
@@ -436,17 +518,6 @@ th {
 .panel-title {
   margin: 0;
 }
-details.create {
-  margin-top: 1rem;
-}
-details.create summary,
-details.audits summary {
-  cursor: pointer;
-  font-weight: 600;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-}
 
 @media (max-width: 900px) {
   .grid-shop {
@@ -463,8 +534,4 @@ details.audits summary {
       filter 0.15s,
       border-color 0.15s;
   }
-}
-
-details.audits summary {
-  font-size: 1.25rem;
 }

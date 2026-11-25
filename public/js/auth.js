@@ -29,6 +29,7 @@ export function initAuth({ onLogin, onLogout }) {
   }
 
   async function run(action) {
+    if (buttons[0].disabled) return;
     const creds = credentials();
     if (!creds) return;
     busy(true);
