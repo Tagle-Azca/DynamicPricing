@@ -71,6 +71,12 @@ describe('docs/openapi.yaml', () => {
       'RESERVATION_NOT_ACTIVE',
       'PRODUCT_EXISTS',
       'PRODUCT_NOT_FOUND',
+      'SHIPPING_UNSUPPORTED_CURRENCY',
+      'IMAGE_URL_NOT_ALLOWED',
+      'DELIVERY_REQUIRED',
+      'REGION_MISMATCH',
+      'PRICE_CHANGED',
+      'COUPON_RESERVATION_INVALID',
     ]) {
       expect(SPEC).toContain(code);
     }

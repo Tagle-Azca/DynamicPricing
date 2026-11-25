@@ -4,6 +4,10 @@ export const ROLES = ['customer', 'admin'] as const;
 export const roleSchema = z.enum(ROLES);
 export type Role = z.infer<typeof roleSchema>;
 
+export const TIERS = ['standard', 'gold', 'platinum'] as const;
+export const tierSchema = z.enum(TIERS);
+export type Tier = z.infer<typeof tierSchema>;
+
 const email = z.string().trim().toLowerCase().max(254).email();
 
 const registerPassword = z
@@ -34,6 +38,7 @@ export interface PublicUser {
   id: string;
   email: string;
   role: Role;
+  tier: Tier;
 }
 
 export interface LoginResponse {

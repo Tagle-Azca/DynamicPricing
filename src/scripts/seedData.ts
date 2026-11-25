@@ -11,6 +11,12 @@ export const CATALOG: ProductDoc[] = [
   { sku: 'SKU-KEYBOARD', name: 'Mechanical keyboard', category: 'accessories', unitPrice: 2500 },
   { sku: 'SKU-MOUSE', name: 'Optical mouse', category: 'accessories', unitPrice: 1500 },
   { sku: 'SKU-CABLE', name: 'USB-C cable', category: 'accessories', unitPrice: 1000 },
+  { sku: 'SKU-MONITOR', name: 'Ultrawide monitor 34"', category: 'electronics', unitPrice: 45000 },
+  { sku: 'SKU-TABLET', name: 'Tablet 11"', category: 'electronics', unitPrice: 35000 },
+  { sku: 'SKU-WATCH', name: 'Smartwatch', category: 'electronics', unitPrice: 20000 },
+  { sku: 'SKU-SPEAKER', name: 'Bluetooth speaker', category: 'audio', unitPrice: 6000 },
+  { sku: 'SKU-WEBCAM', name: 'HD webcam', category: 'accessories', unitPrice: 4500 },
+  { sku: 'SKU-CHARGER', name: 'Fast charger 65W', category: 'accessories', unitPrice: 3500 },
 ].map((p) => ({ ...p, currency: 'USD', isActive: true }));
 
 export function buildCampaigns(now: Date): CampaignDoc[] {

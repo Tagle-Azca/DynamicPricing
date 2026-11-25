@@ -2,7 +2,7 @@ import { $, setBusy, setStatus } from './dom.js';
 import { request, setToken, describeError } from './api.js';
 
 // Handles login/register/logout. onLogin(user) receives the /auth/me principal.
-export function initAuth({ onLogin, onLogout }) {
+export function initAuth({ onLogin, onLogout, beforeLogout = () => {} }) {
   const form = $('auth-form');
   const status = $('auth-status');
   const buttons = [$('login-btn'), $('register-btn')];
@@ -51,6 +51,7 @@ export function initAuth({ onLogin, onLogout }) {
   });
   $('register-btn').addEventListener('click', () => run('register'));
   $('logout').addEventListener('click', () => {
+    beforeLogout(); // the token is still valid here, so a held coupon can be released
     setToken(null);
     onLogout();
   });

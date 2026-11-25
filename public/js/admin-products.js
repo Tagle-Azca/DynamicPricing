@@ -69,6 +69,7 @@ export async function loadProducts() {
         { label: 'Name', cell: (p) => p.name },
         { label: 'Category', cell: (p) => p.category },
         { label: 'Price', cell: (p) => `${money(p.unitPrice)} ${p.currency}` },
+        { label: 'Image URL', cell: (p) => (p.imageUrl ? h('code', { text: p.imageUrl }) : '-') },
         { label: 'Active', cell: (p) => (p.isActive ? 'Yes' : 'No') },
         { label: 'Edit price (cents)', cell: priceEditor },
         {
@@ -104,6 +105,7 @@ export function initProducts(onProductsChanged) {
       category: f.category.value.trim(),
       unitPrice: int(f.unitPrice.value),
       currency: f.currency.value.trim().toUpperCase() || undefined,
+      imageUrl: f.imageUrl.value.trim() || undefined,
     });
     const btn = form.querySelector('button[type="submit"]');
     setBusy(btn, true);

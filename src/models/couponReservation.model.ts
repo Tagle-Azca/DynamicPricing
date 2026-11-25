@@ -1,6 +1,6 @@
 import { Schema, model } from 'mongoose';
 
-export const RESERVATION_STATUSES = ['RESERVED', 'RELEASED'] as const;
+export const RESERVATION_STATUSES = ['RESERVED', 'RELEASED', 'CONSUMED'] as const;
 export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
 
 export interface CouponReservationDoc {
@@ -13,6 +13,7 @@ export interface CouponReservationDoc {
   status: ReservationStatus;
   expiresAt: Date;
   releasedAt?: Date;
+  consumedAt?: Date;
   createdAt: Date;
 }
 
@@ -27,8 +28,14 @@ const reservationSchema = new Schema<CouponReservationDoc>(
     status: { type: String, enum: RESERVATION_STATUSES, required: true, default: 'RESERVED' },
     expiresAt: { type: Date, required: true },
     releasedAt: { type: Date },
+    consumedAt: { type: Date },
   },
-  { timestamps: { createdAt: true, updatedAt: false }, versionKey: false },
+  {
+    timestamps: { createdAt: true, updatedAt: false },
+    versionKey: false,
+    // Built by prepareReservationIndexes() at startup, after any legacy index is repaired.
+    autoIndex: false,
+  },
 );
 
 // Only active reservations are unique per cart, so a released cart can reserve again.

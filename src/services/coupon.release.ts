@@ -54,7 +54,7 @@ export async function releaseReservation(
       session,
     );
     if (existing) {
-      throw new AppError(409, 'RESERVATION_NOT_ACTIVE', 'Reservation is already released');
+      throw new AppError(409, 'RESERVATION_NOT_ACTIVE', 'Reservation is no longer active');
     }
     throw new AppError(404, 'RESERVATION_NOT_FOUND', 'Reservation not found');
   });

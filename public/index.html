@@ -3,31 +3,64 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="light dark" />
-    <title>Dynamic Pricing Console</title>
+    <meta name="color-scheme" content="light" />
+    <title>Dynamic Pricing</title>
+    <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/theme.css" />
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/shop.css" />
+    <link rel="stylesheet" href="/checkout.css" />
     <script type="module" src="/js/main.js"></script>
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
-    <header class="topbar">
-      <h1 class="brand">Dynamic Pricing</h1>
-      <nav id="tabs" class="tabs" aria-label="Sections" hidden>
-        <button type="button" class="tab" data-view="shop" aria-pressed="true">Shop</button>
-        <button type="button" class="tab" data-view="admin" aria-pressed="false" hidden>
-          Admin
-        </button>
-      </nav>
-      <div id="session" class="session" hidden>
-        <span id="session-user" class="muted"></span>
-        <button type="button" id="logout" class="btn secondary">Log out</button>
+    <header id="site-header" class="site-header">
+      <div class="header-in">
+        <a class="logo" href="#/" aria-label="Dynamic Pricing, home">
+          <span class="logo-mark" id="logo-mark"></span>
+          <span class="logo-text">Dynamic Pricing</span>
+        </a>
+        <nav id="site-nav" class="nav" aria-label="Sections" hidden>
+          <button type="button" class="nav-pill" data-view="shop" aria-current="page">Shop</button>
+          <button type="button" class="nav-pill" data-view="admin" aria-current="false" hidden>
+            Admin
+          </button>
+        </nav>
+        <div id="header-end" class="header-end" hidden>
+          <span id="session-user" class="user-email"></span>
+          <button type="button" id="logout" class="pill small">Log out</button>
+          <button
+            type="button"
+            id="cart-btn"
+            class="pill cart-pill"
+            aria-haspopup="dialog"
+            aria-expanded="false"
+            aria-controls="drawer"
+            aria-label="Open cart, empty"
+          >
+            <span id="cart-icon"></span>Cart<span id="cart-count" class="count-badge" hidden
+              >0</span
+            >
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <header id="checkout-header" class="site-header" hidden>
+      <div class="header-in">
+        <a class="logo" href="#/" aria-label="Dynamic Pricing, back to shop">
+          <span class="logo-mark" id="logo-mark-2"></span>
+          <span class="logo-text">Dynamic Pricing</span>
+        </a>
+        <p class="secure"><span id="lock-icon"></span>Secure checkout</p>
+        <a class="pill small" href="#/"><span id="back-icon"></span>Back to shop</a>
       </div>
     </header>
 
     <main id="main" tabindex="-1">
       <section id="view-auth" class="narrow" aria-labelledby="auth-title">
         <div class="card">
-          <h2 id="auth-title">Sign in</h2>
+          <h1 id="auth-title" class="auth-title">Sign in</h1>
           <p class="muted">The session lives in memory only; reloading the page logs you out.</p>
           <form id="auth-form" novalidate>
             <label for="auth-email">Email</label>
@@ -70,72 +103,26 @@
         </div>
       </section>
 
-      <section id="view-shop" class="grid-shop" aria-label="Shop" hidden>
-        <div class="card">
-          <h2>Products</h2>
-          <p id="catalog-status" class="status" role="alert"></p>
-          <button type="button" id="catalog-retry" class="btn secondary" hidden>Retry</button>
-          <ul id="catalog" class="list"></ul>
+      <section id="view-shop" class="shop" aria-label="Shop" hidden>
+        <h1 class="sr-only">Shop</h1>
+        <div id="banner" class="banner" hidden></div>
+        <div class="products-head">
+          <h2 class="section-title">Products</h2>
+          <p id="product-count" class="muted count"></p>
+          <div id="chips" class="chips" role="group" aria-label="Filter by category"></div>
         </div>
+        <p id="catalog-status" class="status" role="alert"></p>
+        <button type="button" id="catalog-retry" class="pill" hidden>Retry</button>
+        <ul id="catalog" class="grid"></ul>
+      </section>
 
-        <div class="card">
-          <h2>Cart</h2>
-          <ul id="cart" class="list"></ul>
-          <p id="cart-empty" class="muted">The cart is empty. Add a product.</p>
-          <div class="row">
-            <div class="field">
-              <label for="tier">Customer tier</label>
-              <select id="tier">
-                <option value="standard">standard</option>
-                <option value="gold">gold</option>
-                <option value="platinum">platinum</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="region">Region</label>
-              <select id="region">
-                <option value="">none</option>
-                <option>CN</option>
-                <option>HK</option>
-                <option>SG</option>
-                <option>AU</option>
-                <option>AR</option>
-                <option>CL</option>
-                <option>MX</option>
-                <option>US</option>
-              </select>
-            </div>
-          </div>
-          <button type="button" id="clear-cart" class="btn secondary">Clear cart</button>
+      <section id="view-checkout" aria-labelledby="checkout-title" hidden>
+        <h1 id="checkout-title" class="sr-only">Checkout</h1>
+        <div id="checkout-layout" class="checkout-layout">
+          <div id="checkout-steps" class="checkout-steps"></div>
+          <div id="checkout-summary" class="checkout-summary"></div>
         </div>
-
-        <div class="card">
-          <h2>Price breakdown</h2>
-          <p id="calc-status" class="status" role="status" aria-live="polite"></p>
-          <div id="breakdown" aria-live="polite" aria-atomic="true"></div>
-          <h3>Coupon</h3>
-          <p class="hint">The coupon is reserved for you when applied and checked by the server.</p>
-          <form id="coupon-form" novalidate>
-            <label for="coupon-code">Coupon code</label>
-            <div class="row">
-              <input id="coupon-code" name="code" type="text" maxlength="64" autocomplete="off" />
-              <button type="submit" id="coupon-btn" class="btn" data-busy-label="Applying...">
-                Apply
-              </button>
-            </div>
-          </form>
-          <p id="coupon-status" class="status" role="alert"></p>
-          <div id="coupon-result" aria-live="polite"></div>
-          <details id="price-details" class="small-details" hidden>
-            <summary>Details</summary>
-            <dl class="meta">
-              <dt>Cart id</dt>
-              <dd><code id="cart-id"></code></dd>
-              <dt>Audit id</dt>
-              <dd><code id="audit-id"></code></dd>
-            </dl>
-          </details>
-        </div>
+        <div id="checkout-done" hidden></div>
       </section>
 
       <section id="view-admin" aria-label="Admin" hidden>
@@ -390,6 +377,10 @@
                     <label for="p-currency">Currency (default USD)</label
                     ><input id="p-currency" name="currency" maxlength="3" />
                   </div>
+                  <div class="field span">
+                    <label for="p-image">Image URL (optional, Cloudinary)</label
+                    ><input id="p-image" name="imageUrl" type="url" maxlength="500" />
+                  </div>
                   <div class="span row">
                     <button type="submit" class="btn" data-busy-label="Creating...">
                       Create product
@@ -426,5 +417,26 @@
         integer cents.
       </p>
     </footer>
+
+    <div id="drawer-root" class="drawer-root" aria-hidden="true">
+      <div id="drawer-backdrop" class="backdrop"></div>
+      <aside
+        id="drawer"
+        class="drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="drawer-title"
+      >
+        <div class="drawer-head">
+          <h2 id="drawer-title">Your cart</h2>
+          <button type="button" id="drawer-close" class="icon-btn" aria-label="Close cart">
+            <span id="close-icon"></span>
+          </button>
+        </div>
+        <div id="drawer-progress" class="drawer-progress"></div>
+        <div id="drawer-body" class="drawer-body"></div>
+        <div id="drawer-foot" class="drawer-foot"></div>
+      </aside>
+    </div>
   </body>
 </html>

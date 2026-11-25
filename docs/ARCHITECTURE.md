@@ -268,3 +268,11 @@ sequenceDiagram
   S->>S: recalcular sha256 de { auditId, cartId, context, items, result }
   S-->>Ad: snapshot(s) + checksumValid (false si se editó fuera de la API)
 ```
+
+## Pedidos, envío y nivel del cliente
+
+- `pricing.price.ts` calcula un carrito solo con datos del servidor (catálogo y campañas) y lo reutilizan `calculate` y el recálculo del pedido; `pricing.response.ts` arma la respuesta (`lineTotal`, `savings`, `shippingOptions`, `nextThreshold`) y `config/shipping.ts` guarda las tarifas.
+- El nivel del cliente se lee del documento `User` en cada solicitud (`user.tier.ts`); nunca viene del token ni del cuerpo.
+- `POST /orders` (`order.service.ts`): busca la auditoría del usuario, exige envío y región coherente, recalcula (`order.reprice.ts`) y, en una sola transacción (`order.place.ts`), pasa la reserva de `RESERVED` a `CONSUMED` y crea el `Order` (instantánea inmutable, único por `auditId`). Una repetición devuelve el mismo pedido.
+- El checksum de la auditoría incluye `shipping` solo cuando existe, igual que `coupon`, por lo que las auditorías anteriores siguen verificando.
+- `models/reservationIndexes.ts` repara al arrancar el índice `couponCode_1_cartId_1` y libera duplicados `RESERVED` antes de reconstruir los índices.

@@ -12,6 +12,7 @@ import { runProductScenarios } from './products.scenarios';
 import { runImmutabilityScenario } from './immutability.scenario';
 import { runAdminScenarios } from './admin.scenarios';
 import { runAdminRegionScenarios } from './adminRegions.scenarios';
+import { runOrderScenarios } from './order.scenarios';
 import { runBootSmoke } from './bootSmoke.scenario';
 import { loginEvidenceCustomer } from './auth.setup';
 import { ensureEvidenceSecret, evidenceConfig } from './evidenceConfig';
@@ -49,6 +50,7 @@ async function main(): Promise<number> {
     await runProductScenarios(h);
     await runAdminScenarios(h);
     await runAdminRegionScenarios(h);
+    await runOrderScenarios(h);
     await runBootSmoke(h, uri);
 
     const file = await writeReport(h.records);

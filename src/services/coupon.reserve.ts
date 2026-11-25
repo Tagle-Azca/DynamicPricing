@@ -70,11 +70,14 @@ export async function reserveCoupon(
   );
   if (!updated) throw new AppError(409, 'COUPON_EXHAUSTED', 'Coupon has no remaining uses');
 
+  // Consumed reservations are completed orders and keep counting toward the per-user limit.
   const active = await CouponReservation.countDocuments({
     couponCode: code,
     userId,
-    status: 'RESERVED',
-    expiresAt: mongoose.trusted({ $gt: now }),
+    $or: [
+      { status: 'RESERVED', expiresAt: mongoose.trusted({ $gt: now }) },
+      { status: 'CONSUMED' },
+    ],
   }).session(session);
   if (active >= coupon.perUserLimit) {
     throw new AppError(409, 'COUPON_LIMIT_REACHED', 'Per-user coupon limit reached', {

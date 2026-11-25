@@ -10,6 +10,7 @@ import { PricingAudit } from '../src/models/pricingAudit.model';
 import { Coupon } from '../src/models/coupon.model';
 import { Product } from '../src/models/product.model';
 import { computeChecksum } from '../src/services/audit.checksum';
+import { CATALOG } from '../src/scripts/seedData';
 
 let app: Express;
 let admin: TestUser;
@@ -50,7 +51,7 @@ describe('GET /catalog', () => {
       .set(...bearer(alice.token));
     expect(res.status).toBe(200);
     const skus = res.body.data.map((p: { sku: string }) => p.sku);
-    expect(skus).toHaveLength(6);
+    expect(skus).toHaveLength(CATALOG.length);
     expect(skus).toEqual([...skus].sort());
     expect(skus).not.toContain('SKU-OLD');
     expect(res.body.data[0]).toEqual({
@@ -148,6 +149,7 @@ describe('server-resolved prices', () => {
         category: 'accessories',
         unitPrice: 1500,
         quantity: 2,
+        lineTotal: 3000,
       },
     ]);
     expect(first.body.data.subtotal).toBe(3000);

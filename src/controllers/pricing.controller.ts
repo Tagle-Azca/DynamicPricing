@@ -9,7 +9,7 @@ export function createCalculateHandler(
 ): (req: Request, res: Response) => Promise<void> {
   return async (req, res) => {
     if (!req.auth) throw new AppError(401, 'AUTH_REQUIRED', 'Authentication required');
-    const owned = resolvePricingOwner(req.body as CalculateRequest, req.auth);
+    const owned = await resolvePricingOwner(req.body as CalculateRequest, req.auth);
     const data = await calculatePricing(owned, reservationTtlSeconds);
     res.status(200).json({ data });
   };

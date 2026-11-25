@@ -101,13 +101,15 @@ describe('calculate with couponCode', () => {
     expect(await remaining('MINBIG')).toBe(10);
   });
 
-  it('409 COUPON_ALREADY_APPLIED for the same coupon on the same cart', async () => {
+  it('409 COUPON_ALREADY_APPLIED for a different coupon on a cart that holds one', async () => {
     await createCoupon('TWICE', { perUserLimit: 5 });
+    await createCoupon('OTHER', { perUserLimit: 5 });
     expect((await calculate(app, alice, 'twice-1', { couponCode: 'TWICE' })).status).toBe(200);
-    const again = await calculate(app, alice, 'twice-1', { couponCode: 'TWICE' });
+    const again = await calculate(app, alice, 'twice-1', { couponCode: 'OTHER' });
     expect(again.status).toBe(409);
     expect(again.body.error.code).toBe('COUPON_ALREADY_APPLIED');
     expect(await remaining('TWICE')).toBe(9);
+    expect(await remaining('OTHER')).toBe(10);
   });
 
   it('a coupon bound to another user is 404 COUPON_NOT_FOUND', async () => {

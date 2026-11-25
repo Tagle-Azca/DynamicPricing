@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { currencyCode } from './admin.common.dto';
+import { SHIPPING_METHODS } from '../config/shipping';
+import type { Tier } from './auth.dto';
 
 export const cartItemInputSchema = z
   .object({
@@ -15,7 +17,6 @@ export const cartItemInputSchema = z
 
 export const pricingContextSchema = z.object({
   userId: z.string().min(1).max(128).optional(),
-  customerTier: z.enum(['standard', 'gold', 'platinum']).optional(),
   currency: currencyCode.default('USD'),
   channel: z.string().max(64).optional(),
   region: z
@@ -37,11 +38,15 @@ export const calculateRequestSchema = z.object({
     .max(64)
     .transform((v) => v.toUpperCase())
     .optional(),
+  delivery: z.enum(SHIPPING_METHODS).optional(),
 });
 
 export type CartItemInput = z.infer<typeof cartItemInputSchema>;
-export type PricingContext = z.infer<typeof pricingContextSchema>;
-export type CalculateRequest = z.infer<typeof calculateRequestSchema>;
+/** `customerTier` is never accepted from clients; the server sets it from the user record. */
+export type PricingContext = z.infer<typeof pricingContextSchema> & { customerTier?: Tier };
+export type CalculateRequest = Omit<z.infer<typeof calculateRequestSchema>, 'context'> & {
+  context: PricingContext;
+};
 
 /** Item resolved server-side from the product catalog; this is what audits store. */
 export interface CartItem {

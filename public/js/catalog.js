@@ -1,67 +1,33 @@
-import { $, clear, h, money, setBusy, setStatus } from './dom.js';
-import { request, describeError } from './api.js';
+import { request } from './api.js';
 
 // Store catalog loaded from GET /catalog. Prices are integer cents from the server.
-export function initCatalog({ onAdd }) {
+export function createCatalog() {
   let products = [];
-  const status = $('catalog-status');
-  const retry = $('catalog-retry');
-
-  function render() {
-    const list = $('catalog');
-    clear(list);
-    for (const p of products) {
-      list.append(
-        h(
-          'li',
-          { class: 'item' },
-          h(
-            'span',
-            { class: 'grow' },
-            h('strong', { text: p.name }),
-            h('span', { class: 'muted', text: ` ${p.category}` }),
-          ),
-          h('span', { class: 'num', text: `${money(p.unitPrice)} ${p.currency}` }),
-          h('button', {
-            type: 'button',
-            class: 'btn small',
-            'aria-label': `Add ${p.name} to cart`,
-            onClick: () => onAdd(p.sku),
-            text: 'Add',
-          }),
-        ),
-      );
-    }
-  }
-
-  async function load() {
-    retry.hidden = true;
-    setBusy(retry, true);
-    setStatus(status, 'Loading products...', 'info');
-    try {
-      products = await request('GET', '/catalog');
-      render();
-      setStatus(status, products.length ? '' : 'No products are available right now.', 'info');
-    } catch (err) {
-      products = [];
-      render();
-      setStatus(status, describeError(err), 'error');
-      retry.hidden = false;
-    } finally {
-      setBusy(retry, false);
-    }
-  }
-
-  retry.addEventListener('click', load);
+  const subs = new Set();
+  const emit = () => subs.forEach((fn) => fn());
 
   return {
-    load,
+    subscribe(fn) {
+      subs.add(fn);
+      return () => subs.delete(fn);
+    },
+    // Throws on failure; the caller shows the error and a Retry button.
+    async load() {
+      try {
+        products = await request('GET', '/catalog');
+      } catch (err) {
+        products = [];
+        emit();
+        throw err;
+      }
+      emit();
+    },
+    all: () => products,
     find: (sku) => products.find((p) => p.sku === sku),
+    categories: () => [...new Set(products.map((p) => p.category))].sort(),
     reset() {
       products = [];
-      render();
-      setStatus(status, '');
-      retry.hidden = true;
+      emit();
     },
   };
 }

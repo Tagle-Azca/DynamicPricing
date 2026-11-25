@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ShippingOption } from '../config/shipping';
 import type { AuditCoupon, CartItem, PricingContext, PricingResult } from './pricing.dto';
 
 export const auditParamsSchema = z.object({
@@ -12,6 +13,7 @@ export interface AuditSnapshot {
   items: CartItem[];
   result: PricingResult;
   coupon?: AuditCoupon;
+  shipping?: ShippingOption;
   checksum: string;
   createdAt: Date;
 }

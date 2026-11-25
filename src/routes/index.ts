@@ -3,6 +3,8 @@ import type { RequestHandler } from 'express';
 import { createPricingRouter } from './pricing.routes';
 import { createCatalogRouter } from './catalog.routes';
 import { createCouponRouter } from './coupon.routes';
+import { createOrderRouter } from './order.routes';
+import { createCampaignRouter } from './campaign.routes';
 import { createAuthRouter } from './auth.routes';
 import { createAdminRouter } from './admin.routes';
 import { createAuthController } from '../controllers/auth.controller';
@@ -41,6 +43,8 @@ export function createApiRouter(deps: ApiDeps): Router {
       deps.auditQuoteTtlSeconds,
     ),
   );
+  router.use('/campaigns', createCampaignRouter(auth));
+  router.use('/orders', createOrderRouter(auth, deps.limiters.orders, deps.auditQuoteTtlSeconds));
   router.use('/admin', createAdminRouter(auth));
   return router;
 }

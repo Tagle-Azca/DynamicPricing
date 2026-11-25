@@ -1,6 +1,7 @@
 import { Harness, dig } from './harness';
 import { isChecksumValid } from '../../services/audit.query.service';
 import type { AuditSnapshot } from '../../dtos/audit.dto';
+import { CATALOG } from '../seedData';
 
 const validCart = {
   cartId: 'cart-evidence-1',
@@ -42,8 +43,8 @@ export async function runPricingScenarios(h: Harness): Promise<void> {
     path: '/api/v1/catalog',
     status: catalog.status,
     responseBody: catalog.body,
-    expected: '200, six seeded products',
-    pass: catalog.status === 200 && Array.isArray(products) && products.length === 6,
+    expected: `200, ${CATALOG.length} seeded products`,
+    pass: catalog.status === 200 && Array.isArray(products) && products.length === CATALOG.length,
   });
 
   const calc = await h.http('POST', CALCULATE, validCart);

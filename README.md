@@ -53,6 +53,8 @@ conexión `mongodb+srv://...`, incluyendo un nombre de base de datos como `/dyna
 
 ```bash
 npm run seed   # idempotente: reinicia productos, campañas, cupones y reservas (nunca las auditorías)
+# ADVERTENCIA: borra y recrea esos datos. Se niega a correr con NODE_ENV=production o con una base
+# que no sea local (localhost/127.0.0.1). Para forzarlo a propósito: npm run seed -- --force
 npm run dev    # tsx watch src/server.ts
 npm run build && npm start
 ```
@@ -100,7 +102,8 @@ El JWT se guarda solo en memoria, así que al recargar la página se cierra la s
 
 ## Limitaciones conocidas
 
-- Las reservas de cupón no las consume ninguna compra: solo se reservan, se liberan (`DELETE`) o
+- `POST /coupons/apply` solo **reserva** (`RESERVED`); no es una compra. El cupón solo pasa a `CONSUMED`
+  con `POST /orders` (ver «Frontera de confianza»). Las reservas no consumidas se liberan (`DELETE`) o
   expiran. La barrida de expiración corre dentro del proceso del servidor (cada 30 s); si hay varias
   instancias, ejecutarla en todas es seguro porque la liberación es idempotente.
 - El checksum de la auditoría es un SHA-256 sin llave: detecta ediciones accidentales o simples, pero no
@@ -198,7 +201,7 @@ curl -X POST localhost:3000/api/v1/pricing/calculate -H 'content-type: applicati
   -H "Authorization: Bearer $TOKEN" -d '{
   "cartId": "cart-1",
   "items": [{ "sku": "SKU-KEYBOARD", "quantity": 2 }],
-  "context": { "customerTier": "gold", "currency": "USD" },
+  "context": { "currency": "USD" },
   "couponCode": "WELCOME10"
 }'
 ```
@@ -247,6 +250,34 @@ activas (`RESERVED` y no vencidas) que un usuario puede tener de ese cupón; al 
 `COUPON_LIMIT_REACHED`. Es seguro bajo concurrencia: dentro de la transacción se descuenta primero
 `remainingUses` y después se cuentan las reservas activas del usuario; el conflicto de escritura sobre
 el documento del cupón serializa las transacciones simultáneas.
+
+### Frontera de confianza: reserva vs. compra final
+
+`RESERVED` no es `PAID`. Una reserva solo aparta un uso del cupón; no cobra ni cierra ninguna compra, y
+`/coupons/apply` no se debe presentar como el checkout final. Qué confía cada paso:
+
+| Paso                      | El cliente envía                            | Lo decide el servidor                                                                            |
+| ------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `POST /pricing/calculate` | `sku`, `quantity`, `couponCode?`, `region?` | precio unitario (catálogo), descuentos, envío, total, nivel del cliente (guardado en el usuario) |
+| `POST /coupons/apply`     | `code`, `auditId`                           | subtotal (`result.total` de la auditoría propia), descuento, `RESERVED`                          |
+| `POST /orders`            | `auditId`, contacto, dirección              | recálculo completo; `PRICE_CHANGED` si difiere; `RESERVED` -> `CONSUMED` en la misma transacción |
+
+Contrato server-authoritative (base para E3): ningún importe, precio, descuento, nivel ni estado de
+cupón viene del cliente; el pedido solo acepta una auditoría propia y vigente, y los campos de tarjeta
+dan 400. El pago real (`PAID`) queda fuera de alcance: el pedido de demostración responde
+`payment: "DEMO_NOT_CHARGED"`.
+
+Evidencia real en `docs/evidence/EVIDENCE.md` (generada con `npm run evidence`):
+
+| Caso                                      | Escenario      | Resultado                                                                      |
+| ----------------------------------------- | -------------- | ------------------------------------------------------------------------------ |
+| Éxito: reserva, todavía sin compra        | 9 (también 38) | 201 `status: "RESERVED"`                                                       |
+| Éxito: pedido, el cupón pasa a `CONSUMED` | 48             | 201 `CONFIRMED`, `payment: "DEMO_NOT_CHARGED"`, `grandTotal` igual al cotizado |
+| Error: el cliente intenta enviar tarjeta  | 47             | 400 `VALIDATION_ERROR`, nada se guarda                                         |
+| Reintento del mismo pedido                | 49             | mismo `orderNumber` (idempotente)                                              |
+
+Una auditoría ajena da 404 `AUDIT_NOT_FOUND` y un `subtotal` enviado por el cliente a `/coupons/apply`
+da 400.
 
 ### Ciclo de vida de la reserva
 
@@ -310,6 +341,15 @@ perUserLimit?` (1..1000, por defecto 1). `remainingUses` empieza en `maxUses`. `
 - Precios por región: envía `context.region` (por ejemplo `CN`) a `/pricing/calculate`; las campañas con
   `conditions.regions` aplican solo para esas regiones, y si no se omiten con `REGION_NOT_ELIGIBLE`. Los
   precios por temporada son solo rangos de fechas que el admin define cada año.
+
+### Envío, pedidos, campañas activas y nivel del cliente
+
+- `POST /api/v1/pricing/calculate` acepta `delivery` (`standard` o `express`, solo USD) y devuelve además `lineTotal` por ítem, `savings`, `shippingOptions`, `shipping`, `grandTotal` (solo con `delivery`) y `nextThreshold`. El envío estándar es gratis cuando `finalTotal >= 10000` centavos. Volver a calcular con el mismo cupón en el mismo carrito libera la reserva anterior y emite una nueva sin consumir un uso extra.
+- `GET /api/v1/campaigns/active` lista hasta 5 campañas vigentes visibles para el nivel del usuario (solo campos seguros).
+- `POST /api/v1/orders` crea un pedido de demostración desde un `auditId`: el servidor vuelve a calcular todo (`PRICE_CHANGED` si cambió), consume la reserva del cupón (`CONSUMED`) y es idempotente por auditoría. No se aceptan campos de tarjeta ni se cobra nada (`DEMO_NOT_CHARGED`).
+- El nivel (`standard`, `gold`, `platinum`) se guarda en el usuario y el servidor ignora `context.customerTier` del cliente. Para una demo: `npm run set-tier -- usuario@ejemplo.com gold`.
+- Imágenes de producto: `imageUrl` solo se acepta si es `https://res.cloudinary.com/<CLOUDINARY_CLOUD_NAME>/image/upload/...` (se rechazan `/image/fetch/` y los demás tipos de entrega; la CSP limita `img-src` a esa ruta). Sin la variable `CLOUDINARY_CLOUD_NAME` (vacía en `.env.example`) toda imagen se rechaza. No hay credenciales en el repositorio.
+- Al arrancar, si el índice `couponCode_1_cartId_1` de `couponreservations` no es el índice único parcial (`status: "RESERVED"`), se reemplaza; si hay reservas `RESERVED` duplicadas que impiden crearlo, se liberan las más antiguas y se registra una línea en el log.
 
 ### GET /health
 

@@ -1,4 +1,6 @@
 // Pure helpers: turn GET /admin/regions data into per-country state and text.
+import { money } from './money.js';
+
 export function indexRegions(data) {
   const byRegion = new Map();
   for (const r of data.regions || []) byRegion.set(r.region, r.campaigns || []);
@@ -11,7 +13,7 @@ export function stateOf(campaigns) {
 }
 
 export function valueText(c) {
-  return c.type === 'percentage' ? `${c.value}%` : `${(Number(c.value) / 100).toFixed(2)}`;
+  return c.type === 'percentage' ? `${c.value}%` : money(c.value);
 }
 
 export function campaignLine(c) {

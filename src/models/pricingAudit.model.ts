@@ -1,5 +1,6 @@
 import { Schema, model } from 'mongoose';
 import type { AuditCoupon, CartItem, PricingContext, PricingResult } from '../dtos/pricing.dto';
+import type { ShippingOption } from '../config/shipping';
 import { AppError } from '../errors/AppError';
 
 export interface PricingAuditDoc {
@@ -9,6 +10,7 @@ export interface PricingAuditDoc {
   items: CartItem[];
   result: PricingResult;
   coupon?: AuditCoupon;
+  shipping?: ShippingOption;
   checksum: string;
   createdAt: Date;
 }
@@ -21,6 +23,7 @@ const pricingAuditSchema = new Schema<PricingAuditDoc>(
     items: { type: Schema.Types.Mixed, required: true, immutable: true },
     result: { type: Schema.Types.Mixed, required: true, immutable: true },
     coupon: { type: Schema.Types.Mixed, immutable: true },
+    shipping: { type: Schema.Types.Mixed, immutable: true },
     checksum: { type: String, required: true, immutable: true },
     createdAt: { type: Date, required: true, immutable: true, default: () => new Date() },
   },

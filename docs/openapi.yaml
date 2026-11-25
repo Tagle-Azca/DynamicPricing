@@ -14,6 +14,8 @@ tags:
   - name: Catalog
   - name: Pricing
   - name: Coupons
+  - name: Campaigns
+  - name: Orders
   - name: Admin
 security:
   - bearerAuth: []
@@ -59,7 +61,7 @@ paths:
   /auth/me:
     get:
       tags: [Auth]
-      summary: Current principal (sub and role)
+      summary: Current principal (sub, role and stored tier)
       responses:
         '200':
           description: Principal
@@ -73,6 +75,7 @@ paths:
                     properties:
                       sub: { type: string }
                       role: { type: string, enum: [customer, admin] }
+                      tier: { type: string, enum: [standard, gold, platinum] }
         '401': { $ref: '#/components/responses/Unauthorized' }
   /catalog:
     get:
@@ -98,7 +101,11 @@ paths:
         Prices are resolved from the catalog. When `couponCode` is present the coupon
         reservation and the audit write happen in one transaction, and the request counts
         against the per-subject coupon rate limit (429 RATE_LIMITED). Only one active coupon
-        per cart is allowed. The coupon block of an audit is valid only while its reservation
+        per cart is allowed; calling again with the SAME code on the same cart releases the old
+        reservation and issues a fresh one atomically (no extra use is consumed), while a
+        DIFFERENT code gives 409 COUPON_ALREADY_APPLIED. `context.customerTier` sent by the
+        client is ignored: the tier is read from the user record. `delivery` adds `shipping`
+        and `grandTotal` to the response and `shipping` to the checksummed audit snapshot. The coupon block of an audit is valid only while its reservation
         is active (RESERVED and not expired); releasing or expiring the reservation does not
         alter the audit.
       requestBody:
@@ -126,14 +133,15 @@ paths:
         '409':
           description: >-
             COUPON_UNAVAILABLE, COUPON_EXHAUSTED, COUPON_LIMIT_REACHED or COUPON_ALREADY_APPLIED
-            (the cart already holds an active coupon)
+            (the cart already holds an active coupon with a different code)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
         '422':
           description: >-
             UNKNOWN_SKU (details.skus), CURRENCY_MISMATCH (product or coupon currency differs
-            from the cart), MIN_SUBTOTAL_NOT_MET or AMOUNT_TOO_LARGE
+            from the cart), MIN_SUBTOTAL_NOT_MET, AMOUNT_TOO_LARGE or
+            SHIPPING_UNSUPPORTED_CURRENCY (delivery with a currency other than USD)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -156,6 +164,76 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /campaigns/active:
+    get:
+      tags: [Campaigns]
+      summary: Active campaigns for the caller's tier (safe fields only, max 5, percentage first then fixed, value desc)
+      responses:
+        '200':
+          description: Active campaigns
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    maxItems: 5
+                    items: { $ref: '#/components/schemas/PublicCampaign' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /orders:
+    post:
+      tags: [Orders]
+      summary: Place a demo order from a quoted audit (no payment is taken)
+      description: |
+        Every amount comes from re-pricing the audit's SKUs on the server; the body only carries
+        the audit id, contact and address. Card fields are rejected (400 VALIDATION_ERROR).
+        The coupon reservation, if any, becomes CONSUMED in the same transaction that creates
+        the order. Idempotent per audit: repeating the request returns 200 with the same order.
+        Limited per subject (429 RATE_LIMITED). An active reservation on the audit that the quote
+        does not record (for example one made later through POST /coupons/apply) gives
+        409 COUPON_RESERVATION_INVALID, so the client must recalculate.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOrderRequest' }
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Order' }
+        '200':
+          description: Idempotent replay of an existing order for the audit
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Order' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: >-
+            AUDIT_STALE (quote older than AUDIT_QUOTE_TTL_SECONDS), PRICE_CHANGED (re-pricing
+            differs from the quote) or COUPON_RESERVATION_INVALID (released, expired or consumed)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          description: >-
+            DELIVERY_REQUIRED (the audit has no shipping), REGION_MISMATCH or UNKNOWN_SKU
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /coupons/apply:
     post:
       tags: [Coupons]
@@ -282,6 +360,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/ImageUrlNotAllowed' }
   /admin/products/{sku}:
     patch:
       tags: [Admin]
@@ -313,6 +392,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/ImageUrlNotAllowed' }
   /admin/campaigns:
     get:
       tags: [Admin]
@@ -535,6 +615,11 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+    ImageUrlNotAllowed:
+      description: IMAGE_URL_NOT_ALLOWED (host, path, scheme, credentials or port not accepted)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
     RateLimited:
       description: RATE_LIMITED
       content:
@@ -578,6 +663,7 @@ components:
             id: { type: string }
             email: { type: string }
             role: { type: string, enum: [customer, admin] }
+            tier: { type: string, enum: [standard, gold, platinum] }
     LoginEnvelope:
       type: object
       properties:
@@ -596,6 +682,9 @@ components:
         category: { type: string }
         unitPrice: { type: integer, description: Cents }
         currency: { type: string }
+        imageUrl:
+          type: string
+          description: Optional https://res.cloudinary.com/<cloud>/image/upload/... image; omitted when unset
     AdminProduct:
       allOf:
         - $ref: '#/components/schemas/CatalogProduct'
@@ -614,6 +703,7 @@ components:
         currency:
           { type: string, pattern: '^[A-Za-z]{3}$', default: USD, description: Uppercased on input }
         isActive: { type: boolean, default: true }
+        imageUrl: { $ref: '#/components/schemas/ImageUrlInput' }
     UpdateProduct:
       type: object
       minProperties: 1
@@ -624,6 +714,16 @@ components:
         unitPrice: { type: integer, minimum: 0, maximum: 1000000000 }
         currency: { type: string, pattern: '^[A-Za-z]{3}$', description: Uppercased on input }
         isActive: { type: boolean }
+        imageUrl:
+          allOf: [{ $ref: '#/components/schemas/ImageUrlInput' }]
+          nullable: true
+          description: Empty string or null clears the image
+    ImageUrlInput:
+      type: string
+      maxLength: 500
+      description: >-
+        https URL on host res.cloudinary.com whose path starts with /CLOUDINARY_CLOUD_NAME/image/upload/ (other delivery types such as /image/fetch/ are refused).
+        Anything else (or any value while the variable is unset) gives 422 IMAGE_URL_NOT_ALLOWED.
     CartItemInput:
       type: object
       required: [sku, quantity]
@@ -639,11 +739,37 @@ components:
         category: { type: string }
         unitPrice: { type: integer }
         quantity: { type: integer }
+    QuotedItem:
+      allOf:
+        - $ref: '#/components/schemas/ResolvedItem'
+        - type: object
+          properties:
+            lineTotal: { type: integer, description: unitPrice * quantity, response only }
+    ShippingOption:
+      type: object
+      properties:
+        method: { type: string, enum: [standard, express] }
+        label: { type: string }
+        eta: { type: string }
+        amount: { type: integer, description: Cents; 0 when free }
+    NextThreshold:
+      type: object
+      properties:
+        code: { type: string }
+        name: { type: string }
+        minSubtotal: { type: integer }
+        remaining: { type: integer, minimum: 1 }
+        progressPercent: { type: integer, minimum: 0, maximum: 99 }
     PricingContext:
       type: object
       properties:
         userId: { type: string }
-        customerTier: { type: string, enum: [standard, gold, platinum] }
+        customerTier:
+          {
+            type: string,
+            enum: [standard, gold, platinum],
+            description: Ignored on input; stored tier is used,
+          }
         currency: { type: string, pattern: '^[A-Za-z]{3}$', default: USD }
         channel: { type: string }
         region: { type: string, pattern: '^[A-Za-z]{2}$' }
@@ -659,6 +785,7 @@ components:
           items: { $ref: '#/components/schemas/CartItemInput' }
         context: { $ref: '#/components/schemas/PricingContext' }
         couponCode: { type: string }
+        delivery: { type: string, enum: [standard, express] }
     CouponReservation:
       type: object
       properties:
@@ -674,7 +801,7 @@ components:
         cartId: { type: string }
         items:
           type: array
-          items: { $ref: '#/components/schemas/ResolvedItem' }
+          items: { $ref: '#/components/schemas/QuotedItem' }
         subtotal: { type: integer }
         appliedRules: { type: array, items: { type: object } }
         skippedRules: { type: array, items: { type: object } }
@@ -684,6 +811,71 @@ components:
         calculatedAt: { type: string, format: date-time }
         finalTotal: { type: integer, description: total minus the coupon discount }
         coupon: { $ref: '#/components/schemas/CouponReservation' }
+        savings: { type: integer, description: totalDiscount plus the coupon discount }
+        shippingOptions:
+          type: array
+          items: { $ref: '#/components/schemas/ShippingOption' }
+        shipping:
+          allOf: [{ $ref: '#/components/schemas/ShippingOption' }]
+          description: Present only when delivery was sent
+        grandTotal: { type: integer, description: finalTotal plus shipping; only with delivery }
+        nextThreshold: { $ref: '#/components/schemas/NextThreshold' }
+    PublicCampaign:
+      type: object
+      properties:
+        code: { type: string }
+        name: { type: string }
+        type: { type: string, enum: [percentage, fixed] }
+        value: { type: integer, description: Percent number for percentage, cents for fixed }
+        minSubtotal: { type: integer }
+        endsAt: { type: string, format: date-time }
+    CreateOrderRequest:
+      type: object
+      required: [auditId, contact, address]
+      additionalProperties: false
+      properties:
+        auditId: { type: string, format: uuid }
+        contact:
+          type: object
+          required: [email, fullName]
+          additionalProperties: false
+          properties:
+            email: { type: string, format: email, maxLength: 254 }
+            fullName: { type: string, minLength: 2, maxLength: 120 }
+        address:
+          type: object
+          required: [street, city, postalCode, region]
+          additionalProperties: false
+          properties:
+            street: { type: string, minLength: 3, maxLength: 200 }
+            city: { type: string, minLength: 2, maxLength: 100 }
+            postalCode: { type: string, minLength: 3, maxLength: 12, pattern: '^[A-Za-z0-9 -]+$' }
+            region: { type: string, pattern: '^[A-Za-z]{2}$' }
+    Order:
+      type: object
+      properties:
+        orderNumber: { type: string, pattern: '^DP-[A-HJ-NP-Z2-9]{8}$' }
+        status: { type: string, enum: [CONFIRMED] }
+        payment: { type: string, enum: [DEMO_NOT_CHARGED] }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/QuotedItem' }
+        subtotal: { type: integer }
+        totalDiscount: { type: integer }
+        couponDiscount: { type: integer }
+        savings: { type: integer }
+        shipping: { $ref: '#/components/schemas/ShippingOption' }
+        grandTotal: { type: integer }
+        currency: { type: string }
+        contact: { type: object }
+        address: { type: object }
+        coupon:
+          type: object
+          description: Present only when a coupon was used
+          properties:
+            code: { type: string }
+            discountAmount: { type: integer }
+        createdAt: { type: string, format: date-time }
     ApplyResponse:
       allOf:
         - $ref: '#/components/schemas/CouponReservation'
@@ -712,6 +904,9 @@ components:
             discountAmount: { type: integer }
             reservationId: { type: string }
             expiresAt: { type: string, format: date-time }
+        shipping:
+          allOf: [{ $ref: '#/components/schemas/ShippingOption' }]
+          description: Present only when the audit was calculated with delivery
         checksum: { type: string }
         createdAt: { type: string, format: date-time }
     Campaign:

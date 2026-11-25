@@ -6,6 +6,7 @@ export interface Limiters {
   global: RequestHandler;
   auth: RequestHandler;
   coupon: RequestHandler;
+  orders: RequestHandler;
 }
 
 function limited(_req: Request, res: Response): void {
@@ -38,5 +39,6 @@ export function createLimiters(cfg: AppConfig): Limiters {
     global: build(cfg.rateLimitWindowMs, cfg.rateLimitMax),
     auth: build(cfg.rateLimitWindowMs, cfg.rateLimitAuthMax),
     coupon: build(cfg.rateLimitWindowMs, cfg.rateLimitCouponMax, keyBySubject),
+    orders: build(cfg.rateLimitWindowMs, cfg.rateLimitCouponMax, keyBySubject),
   };
 }

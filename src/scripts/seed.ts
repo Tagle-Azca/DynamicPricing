@@ -9,6 +9,7 @@ import { User } from '../models/user.model';
 import { createUser } from '../services/user.service';
 import type { Env } from '../config/env';
 import { CATALOG, buildCampaigns, buildCoupons } from './seedData';
+import { parseMongoTarget, seedRefusal } from './seedGuard';
 
 export async function seedDatabase(now: Date = new Date()): Promise<void> {
   await initModels();
@@ -38,6 +39,17 @@ async function seedAdmin(env: Env): Promise<void> {
 
 async function main(): Promise<void> {
   const env = loadEnv();
+  const force = process.argv.includes('--force');
+  const refusal = seedRefusal(env.NODE_ENV, env.MONGODB_URI, force);
+  if (refusal) {
+    console.error(
+      `Seed refused: ${refusal}. It deletes products, campaigns, coupons and reservations. ` +
+        'Use only on a development database; to override on purpose run: npm run seed -- --force',
+    );
+    process.exit(1);
+  }
+  const { database } = parseMongoTarget(env.MONGODB_URI);
+  console.log(`Seeding database "${database || '(default)'}"${force ? ' (--force)' : ''}`);
   await connectDatabase(env.MONGODB_URI);
   await seedDatabase();
   await seedAdmin(env);

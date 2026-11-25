@@ -51,6 +51,7 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
+  CLOUDINARY_CLOUD_NAME: optional(z.string().regex(/^[A-Za-z0-9_-]{1,64}$/)),
   SEED_ADMIN_EMAIL: optional(z.string().email()),
   SEED_ADMIN_PASSWORD: optional(z.string().min(12)),
 });

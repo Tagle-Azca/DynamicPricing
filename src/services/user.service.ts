@@ -12,7 +12,7 @@ export async function createUser(
   const passwordHash = await hashPassword(password, rounds);
   try {
     const doc = await User.create({ email, passwordHash, role });
-    return { id: String(doc._id), email: doc.email, role: doc.role };
+    return { id: String(doc._id), email: doc.email, role: doc.role, tier: doc.tier };
   } catch (err) {
     if ((err as { code?: unknown }).code === 11000) {
       throw new AppError(409, 'EMAIL_TAKEN', 'Email is already registered');

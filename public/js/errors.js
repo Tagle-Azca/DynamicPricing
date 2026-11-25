@@ -10,6 +10,15 @@ const BY_CODE = {
   CURRENCY_MISMATCH: 'A product currency does not match the cart currency.',
   PRODUCT_EXISTS: 'A product with this SKU already exists.',
   PRODUCT_NOT_FOUND: 'Product not found.',
+  PRICE_CHANGED: 'Prices changed since your last quote. Review the new total.',
+  AUDIT_STALE: 'Your quote expired. Review the new total and try again.',
+  AUDIT_NOT_FOUND: 'We could not find that quote. Review your order and try again.',
+  DELIVERY_REQUIRED: 'Choose a delivery method first.',
+  REGION_MISMATCH: 'The address region must match the region used for pricing.',
+  COUPON_RESERVATION_INVALID: 'Your coupon reservation expired. Apply the coupon again.',
+  SHIPPING_UNSUPPORTED_CURRENCY: 'Shipping is only available for USD orders.',
+  IMAGE_URL_NOT_ALLOWED:
+    'That image URL is not allowed. Use an image from the configured Cloudinary account.',
 };
 
 function details(err) {

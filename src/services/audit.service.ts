@@ -4,8 +4,9 @@ import { PricingAudit } from '../models/pricingAudit.model';
 import { AppError } from '../errors/AppError';
 import type { AuditSnapshot } from '../dtos/audit.dto';
 import type { Principal } from '../dtos/auth.dto';
+import type { ShippingOption } from '../config/shipping';
 import type { AuditCoupon, CartItem, PricingContext, PricingResult } from '../dtos/pricing.dto';
-import { computeChecksum } from './audit.checksum';
+import { checksumSnapshot, computeChecksum } from './audit.checksum';
 
 export interface AuditInput {
   cartId: string;
@@ -14,6 +15,7 @@ export interface AuditInput {
   result: PricingResult;
   auditId?: string;
   coupon?: AuditCoupon;
+  shipping?: ShippingOption;
 }
 
 export async function recordAudit(
@@ -21,9 +23,8 @@ export async function recordAudit(
   session?: ClientSession,
 ): Promise<{ auditId: string; createdAt: Date }> {
   const auditId = input.auditId ?? randomUUID();
-  const { cartId, context, items, result, coupon } = input;
-  // Coupon joins the checksummed snapshot only when present, so legacy audits still verify.
-  const snapshot = { auditId, cartId, context, items, result, ...(coupon ? { coupon } : {}) };
+  const { cartId, context, items, result, coupon, shipping } = input;
+  const snapshot = checksumSnapshot({ auditId, cartId, context, items, result, coupon, shipping });
   const checksum = computeChecksum(snapshot);
   const createdAt = new Date();
   await PricingAudit.create([{ ...snapshot, checksum, createdAt }], { session });

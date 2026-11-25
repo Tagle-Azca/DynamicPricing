@@ -7,6 +7,8 @@ const productFields = {
   unitPrice: cents.max(1_000_000_000),
   currency: currencyCode,
   isActive: z.boolean(),
+  // Host and path rules are enforced in the service (422 IMAGE_URL_NOT_ALLOWED).
+  imageUrl: z.string().max(10000).nullable(),
 };
 
 export const createProductSchema = z
@@ -15,6 +17,7 @@ export const createProductSchema = z
     ...productFields,
     currency: productFields.currency.default('USD'),
     isActive: productFields.isActive.default(true),
+    imageUrl: productFields.imageUrl.optional(),
   })
   .strict();
 

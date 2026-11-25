@@ -1,15 +1,16 @@
 import { AppError } from '../errors/AppError';
 import type { Principal } from '../dtos/auth.dto';
 import type { CalculateRequest } from '../dtos/pricing.dto';
+import { getUserTier } from './user.tier';
 
 /**
  * Makes the audit owner server-authoritative. Customers can only price as themselves;
  * admins may price on behalf of another user and default to their own subject.
  */
-export function resolvePricingOwner(
+export async function resolvePricingOwner(
   request: CalculateRequest,
   principal: Principal,
-): CalculateRequest {
+): Promise<CalculateRequest> {
   const requested = request.context.userId;
   if (principal.role !== 'admin' && requested !== undefined && requested !== principal.sub) {
     throw new AppError(
@@ -19,5 +20,8 @@ export function resolvePricingOwner(
     );
   }
   const userId = principal.role === 'admin' ? (requested ?? principal.sub) : principal.sub;
-  return { ...request, context: { ...request.context, userId } };
+  // The tier is the audit owner's stored tier (never the admin's when pricing for a customer);
+  // whatever the client sent was already stripped.
+  const customerTier = await getUserTier(userId);
+  return { ...request, context: { ...request.context, userId, customerTier } };
 }

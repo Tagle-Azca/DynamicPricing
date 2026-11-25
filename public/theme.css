@@ -1,0 +1,53 @@
+/* Light theme tokens and fonts (self-hosted, no third parties). Admin overrides them in styles.css. */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-latin.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('/fonts/space-grotesk-latin.woff2') format('woff2');
+  font-weight: 600 700;
+  font-style: normal;
+  font-display: swap;
+}
+:root {
+  color-scheme: light;
+  --bg: #f6f6f3;
+  --surface: #ffffff;
+  --text: #17181c;
+  --muted: #5b5f6b;
+  --border: #e3e2dc;
+  --accent: #3b3fd8;
+  --accent-hover: #4d51e6;
+  --accent-tint: #eceefe;
+  --accent-text: #ffffff;
+  --ok: #157347;
+  --ok-tint: #e5f4ec;
+  --error: #b42318;
+  --focus: #3b3fd8;
+  --dark: #17181c;
+  --radius: 16px;
+  --btn-radius: 999px;
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-head: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --shadow: 0 8px 24px rgb(23 24 28 / 8%);
+}
+h1,
+h2,
+h3,
+.price {
+  font-family: var(--font-head);
+}
+h1,
+h2,
+h3 {
+  font-weight: 700;
+}
+.price {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

@@ -134,6 +134,10 @@ cupones en la auditoría.
 - `docs/openapi.yaml` (OpenAPI 3.0.3) describe todas las rutas de `/api/v1`, el esquema Bearer y los
   códigos de error; una prueba automática falla si una ruta registrada no aparece en el documento.
 
+### Feature I: envío, pedido de demostración y campañas activas
+
+El cálculo devuelve opciones de envío, `lineTotal`, `savings` y la siguiente meta de campaña; `POST /orders` convierte una auditoría en un pedido recalculado por el servidor, consume el cupón y es idempotente. El nivel del cliente se guarda en el usuario y las imágenes de producto se restringen a Cloudinary. Detalles en `README.md` y `docs/openapi.yaml`.
+
 ## 4. Resumen de endpoints (agregados o modificados)
 
 | Método         | Ruta                           | Acceso          | Notas                                                       |
@@ -151,12 +155,16 @@ cupones en la auditoría.
 | GET            | /admin/regions                 | admin           | nuevo                                                       |
 | PUT/DELETE     | /admin/campaigns/:c/regions/:r | admin           | nuevo                                                       |
 | GET            | /admin/audits, /:id, /export   | admin           | nuevo (el listado ya existía)                               |
+| GET            | /campaigns/active              | customer, admin | nuevo                                                       |
+| POST           | /orders                        | customer, admin | nuevo: pedido de demostración, idempotente                  |
 
 Códigos de error agregados: 401 `AUTH_REQUIRED` `TOKEN_EXPIRED` `TOKEN_INVALID` `INVALID_CREDENTIALS`;
 403 `FORBIDDEN` `USER_MISMATCH`; 404 `CAMPAIGN_NOT_FOUND`; 409 `EMAIL_TAKEN` `DUPLICATE_RESOURCE`
 `LAST_REGION`; 422 `AMOUNT_TOO_LARGE` `EXPORT_TOO_LARGE` `UNKNOWN_SKU` `CURRENCY_MISMATCH`; 429 `RATE_LIMITED`;
 404 `PRODUCT_NOT_FOUND` `RESERVATION_NOT_FOUND`; 409 `PRODUCT_EXISTS` `COUPON_LIMIT_REACHED`
-`RESERVATION_NOT_ACTIVE`.
+`RESERVATION_NOT_ACTIVE`; nuevos de esta etapa: 422 `SHIPPING_UNSUPPORTED_CURRENCY`
+`IMAGE_URL_NOT_ALLOWED` `DELIVERY_REQUIRED` `REGION_MISMATCH`; 409 `PRICE_CHANGED`
+`COUPON_RESERVATION_INVALID`.
 
 ## 5. Problemas encontrados y decisiones técnicas
 
@@ -182,8 +190,7 @@ Códigos de error agregados: 401 `AUTH_REQUIRED` `TOKEN_EXPIRED` `TOKEN_INVALID`
   - Checksum sin llave (S3): el checksum de la auditoría es SHA-256 simple, así que detecta ediciones
     accidentales o simples, pero no a alguien con acceso a la base de datos que lo recalcule. Planeado:
     HMAC-SHA256 con un secreto dedicado.
-  - Ninguna compra consume la reserva todavía: solo se reserva, se libera o expira.
-- Resueltas en esta iteración: el subtotal del cupón ya no lo envía el cliente (S1, ahora `auditId`) y
+- Resueltas en esta iteración: `POST /orders` consume la reserva (`RESERVED` -> `CONSUMED`) y recalcula en el servidor (frontera de confianza en `README.md`); el subtotal del cupón ya no lo envía el cliente (S1, ahora `auditId`) y
   existe un límite por usuario (S2, `perUserLimit`; la evidencia de concurrencia usa `FLASH5` con
   `perUserLimit` 5).
 
@@ -191,4 +198,4 @@ Códigos de error agregados: 401 `AUTH_REQUIRED` `TOKEN_EXPIRED` `TOKEN_INVALID`
 
 Impuestos por región y exportación por periodo fiscal, eventos de cupones en la auditoría y un
 endpoint de verificación masiva, revocación de tokens y límite de intentos de inicio de sesión por
-cuenta, y que una compra consuma la reserva del cupón.
+cuenta, y un cobro real (`PAID`) con proveedor de pagos: hoy el pedido es de demostración (`DEMO_NOT_CHARGED`).

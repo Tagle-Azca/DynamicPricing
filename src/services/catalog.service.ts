@@ -3,7 +3,7 @@ import { Product } from '../models/product.model';
 import { AppError } from '../errors/AppError';
 import type { CartItem, CartItemInput } from '../dtos/pricing.dto';
 
-const PUBLIC_FIELDS = 'sku name category unitPrice currency -_id';
+const PUBLIC_FIELDS = 'sku name category unitPrice currency imageUrl -_id';
 
 export async function listCatalog(): Promise<unknown[]> {
   return Product.find({ isActive: true }).select(PUBLIC_FIELDS).sort({ sku: 1 }).lean();

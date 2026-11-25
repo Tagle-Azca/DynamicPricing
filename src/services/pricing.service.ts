@@ -1,39 +1,16 @@
 import mongoose from 'mongoose';
 import { randomUUID } from 'node:crypto';
-import { Campaign } from '../models/campaign.model';
 import { AppError } from '../errors/AppError';
-import type { CalculateRequest, CartItem, PricingResult } from '../dtos/pricing.dto';
-import type { ReserveResult } from '../dtos/coupon.dto';
-import { evaluateCampaigns } from './pricing.rules';
+import { SHIPPING_CURRENCY, selectShipping, shippingOptionsFor } from '../config/shipping';
+import type { CalculateRequest } from '../dtos/pricing.dto';
 import { recordAudit } from './audit.service';
-import { resolveItems } from './catalog.service';
 import { reserveCoupon } from './coupon.reserve';
+import { releaseSameCodeReservation } from './coupon.requote';
+import { priceCart } from './pricing.price';
+import { buildQuote } from './pricing.response';
+import type { CalculateResponse } from './pricing.response';
 
-export interface CalculateResponse extends PricingResult {
-  auditId: string;
-  cartId: string;
-  items: CartItem[];
-  calculatedAt: Date;
-  finalTotal: number;
-  coupon?: ReserveResult;
-}
-
-async function priceCart(
-  request: CalculateRequest,
-  now: Date,
-): Promise<{ items: CartItem[]; result: PricingResult }> {
-  const items = await resolveItems(request.items, request.context.currency);
-  const campaigns = await Campaign.find({
-    isActive: true,
-    startsAt: mongoose.trusted({ $lte: now }),
-    endsAt: mongoose.trusted({ $gt: now }),
-  }).lean();
-  const result = evaluateCampaigns(campaigns, items, request.context);
-  if (!Number.isSafeInteger(result.subtotal)) {
-    throw new AppError(422, 'AMOUNT_TOO_LARGE', 'Cart subtotal exceeds the supported amount');
-  }
-  return { items, result };
-}
+export type { CalculateResponse } from './pricing.response';
 
 /** `request.context.userId` must already be resolved to the audit owner. */
 export async function calculatePricing(
@@ -41,18 +18,34 @@ export async function calculatePricing(
   ttlSeconds: number,
   now: Date = new Date(),
 ): Promise<CalculateResponse> {
-  const { items, result } = await priceCart(request, now);
-  const { cartId, context, couponCode } = request;
-  const base = { cartId, context, items, result };
+  const { cartId, context, couponCode, delivery } = request;
+  if (delivery && context.currency !== SHIPPING_CURRENCY) {
+    throw new AppError(
+      422,
+      'SHIPPING_UNSUPPORTED_CURRENCY',
+      `Shipping is only available in ${SHIPPING_CURRENCY}`,
+    );
+  }
+  const { items, result, campaigns } = await priceCart(request.items, context, now);
+  const parts = { cartId, items, result, context, campaigns };
   if (!couponCode) {
-    const { auditId, createdAt } = await recordAudit(base);
-    return { auditId, cartId, items, ...result, calculatedAt: createdAt, finalTotal: result.total };
+    const shippingOptions = shippingOptionsFor(result.total);
+    const shipping = selectShipping(shippingOptions, delivery);
+    const audit = await recordAudit({ cartId, context, items, result, shipping });
+    return buildQuote({
+      ...parts,
+      auditId: audit.auditId,
+      calculatedAt: audit.createdAt,
+      shippingOptions,
+      shipping,
+    });
   }
   const userId = context.userId ?? '';
   const auditId = randomUUID();
   // Reservation and audit commit together; a failure in either leaves remainingUses untouched.
-  const { coupon, createdAt } = await mongoose.connection.transaction(async (session) => {
-    const reserved = await reserveCoupon(
+  return mongoose.connection.transaction(async (session) => {
+    await releaseSameCodeReservation({ code: couponCode, userId, cartId, now }, session);
+    const coupon = await reserveCoupon(
       {
         code: couponCode,
         userId,
@@ -65,28 +58,32 @@ export async function calculatePricing(
       },
       session,
     );
+    const shippingOptions = shippingOptionsFor(result.total - coupon.discountAmount);
+    const shipping = selectShipping(shippingOptions, delivery);
     const audit = await recordAudit(
       {
-        ...base,
+        cartId,
+        context,
+        items,
+        result,
         auditId,
+        shipping,
         coupon: {
-          code: reserved.code,
-          discountAmount: reserved.discountAmount,
-          reservationId: reserved.reservationId,
-          expiresAt: reserved.expiresAt.toISOString(),
+          code: coupon.code,
+          discountAmount: coupon.discountAmount,
+          reservationId: coupon.reservationId,
+          expiresAt: coupon.expiresAt.toISOString(),
         },
       },
       session,
     );
-    return { coupon: reserved, createdAt: audit.createdAt };
+    return buildQuote({
+      ...parts,
+      auditId,
+      calculatedAt: audit.createdAt,
+      coupon,
+      shippingOptions,
+      shipping,
+    });
   });
-  return {
-    auditId,
-    cartId,
-    items,
-    ...result,
-    calculatedAt: createdAt,
-    finalTotal: result.total - coupon.discountAmount,
-    coupon,
-  };
 }
