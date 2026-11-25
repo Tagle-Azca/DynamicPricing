@@ -44,6 +44,8 @@ const envSchema = z.object({
   RATE_LIMIT_MAX: positiveInt(100),
   RATE_LIMIT_AUTH_MAX: positiveInt(10),
   RATE_LIMIT_COUPON_MAX: positiveInt(10),
+  RESERVATION_TTL_SECONDS: z.coerce.number().int().min(1).max(86400).default(900),
+  AUDIT_QUOTE_TTL_SECONDS: z.coerce.number().int().min(1).max(86400).default(900),
   BCRYPT_ROUNDS: z.coerce.number().int().min(10).max(14).default(12),
   TRUST_PROXY: z
     .enum(['true', 'false'])

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { RequestHandler } from 'express';
 import { createPricingRouter } from './pricing.routes';
+import { createCatalogRouter } from './catalog.routes';
 import { createCouponRouter } from './coupon.routes';
 import { createAuthRouter } from './auth.routes';
 import { createAdminRouter } from './admin.routes';
@@ -14,6 +15,8 @@ export interface ApiDeps {
   tokens: TokenService;
   limiters: Limiters;
   bcryptRounds: number;
+  reservationTtlSeconds: number;
+  auditQuoteTtlSeconds: number;
 }
 
 export function createApiRouter(deps: ApiDeps): Router {
@@ -24,8 +27,20 @@ export function createApiRouter(deps: ApiDeps): Router {
     '/auth',
     createAuthRouter({ controller, authLimiter: deps.limiters.auth, authenticate: auth }),
   );
-  router.use('/pricing', createPricingRouter(auth));
-  router.use('/coupons', createCouponRouter(auth, deps.limiters.coupon));
+  router.use('/catalog', createCatalogRouter(auth));
+  router.use(
+    '/pricing',
+    createPricingRouter(auth, deps.limiters.coupon, deps.reservationTtlSeconds),
+  );
+  router.use(
+    '/coupons',
+    createCouponRouter(
+      auth,
+      deps.limiters.coupon,
+      deps.reservationTtlSeconds,
+      deps.auditQuoteTtlSeconds,
+    ),
+  );
   router.use('/admin', createAdminRouter(auth));
   return router;
 }

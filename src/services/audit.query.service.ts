@@ -17,8 +17,9 @@ export async function listAudits(query: ListAuditsQuery): Promise<AuditSnapshot[
 }
 
 export function isChecksumValid(a: AuditSnapshot): boolean {
-  const { auditId, cartId, context, items, result } = a;
-  return computeChecksum({ auditId, cartId, context, items, result }) === a.checksum;
+  const { auditId, cartId, context, items, result, coupon } = a;
+  const snapshot = { auditId, cartId, context, items, result, ...(coupon ? { coupon } : {}) };
+  return computeChecksum(snapshot) === a.checksum;
 }
 
 export async function getAuditVerified(

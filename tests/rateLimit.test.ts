@@ -26,13 +26,13 @@ describe('rate limiting [DoD-15]', () => {
       request(app)
         .post(APPLY)
         .set(...bearer(u.token))
-        .send({ code: 'WELCOME10', cartId: `rl-${u.id}-${n}`, subtotal: 20000 });
-    for (let i = 0; i < 3; i++) expect((await apply(userA, i)).status).toBe(200);
+        .send({ code: 'WELCOME10', auditId: `00000000-0000-4000-8000-00000000000${n}` });
+    for (let i = 0; i < 3; i++) expect((await apply(userA, i)).status).toBe(404);
     const blocked = await apply(userA, 3);
     expect(blocked.status).toBe(429);
     expect(blocked.body.error.code).toBe('RATE_LIMITED');
     expect(blocked.headers['ratelimit']).toBeDefined();
-    expect((await apply(userB, 0)).status).toBe(200);
+    expect((await apply(userB, 0)).status).toBe(404);
   });
 
   it('limits login attempts', async () => {

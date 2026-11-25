@@ -17,6 +17,7 @@ export async function loadCoupons() {
           cell: (c) => (c.discountType === 'percentage' ? `${c.value}%` : money(c.value)),
         },
         { label: 'Uses left', cell: (c) => `${c.remainingUses} / ${c.maxUses}` },
+        { label: 'Per user', cell: (c) => String(c.perUserLimit ?? 1) },
         { label: 'Expires', cell: (c) => formatDate(c.expiresAt) },
         { label: 'User', cell: (c) => c.userId || 'any' },
         { label: 'Active', cell: (c) => (c.isActive ? 'Yes' : 'No') },
@@ -64,6 +65,7 @@ export function initCoupons() {
       discountType: f.discountType.value,
       value: int(f.value.value),
       maxUses: int(f.maxUses.value),
+      perUserLimit: int(f.perUserLimit.value),
       expiresAt: toIso(f.expiresAt.value),
       userId: f.userId.value.trim() || undefined,
     });

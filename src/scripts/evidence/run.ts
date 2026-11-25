@@ -7,6 +7,8 @@ import { Harness } from './harness';
 import { writeReport } from './report';
 import { runPricingScenarios } from './pricing.scenarios';
 import { runConcurrencyScenario, runCouponScenarios } from './coupon.scenarios';
+import { runReservationScenarios } from './reservation.scenarios';
+import { runProductScenarios } from './products.scenarios';
 import { runImmutabilityScenario } from './immutability.scenario';
 import { runAdminScenarios } from './admin.scenarios';
 import { runAdminRegionScenarios } from './adminRegions.scenarios';
@@ -42,7 +44,9 @@ async function main(): Promise<number> {
     await runPricingScenarios(h);
     await runCouponScenarios(h);
     await runConcurrencyScenario(h);
+    await runReservationScenarios(h);
     await runImmutabilityScenario(h);
+    await runProductScenarios(h);
     await runAdminScenarios(h);
     await runAdminRegionScenarios(h);
     await runBootSmoke(h, uri);

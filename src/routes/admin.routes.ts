@@ -7,6 +7,7 @@ import { requireRole } from '../middlewares/authorize';
 import * as audit from '../dtos/adminAudit.dto';
 import * as campaign from '../dtos/adminCampaign.dto';
 import * as coupon from '../dtos/adminCoupon.dto';
+import { createAdminProductsRouter } from './adminProducts.routes';
 import { createAdminRegionsRouter } from './adminRegions.routes';
 
 export function createAdminRouter(authenticate: RequestHandler): Router {
@@ -54,6 +55,7 @@ export function createAdminRouter(authenticate: RequestHandler): Router {
     validate('body', coupon.updateCouponSchema),
     asyncHandler(h.updateCouponHandler),
   );
+  router.use(createAdminProductsRouter());
   router.use(createAdminRegionsRouter());
   return router;
 }

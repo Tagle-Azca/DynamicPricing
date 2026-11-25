@@ -1,11 +1,13 @@
 import { $ } from './dom.js';
 import { setSessionLostHandler } from './api.js';
 import { initAuth } from './auth.js';
+import { initCatalog } from './catalog.js';
 import { initCart } from './cart.js';
 import { initPricing } from './pricing.js';
 import { initCoupon } from './coupon.js';
 import { initCampaigns, loadCampaigns } from './admin-campaigns.js';
 import { initCoupons, loadCoupons } from './admin-coupons.js';
+import { initProducts, loadProducts } from './admin-products.js';
 import { initMap, loadMap, clearMap } from './admin-map.js';
 import { initAudits, loadAudits } from './admin-audits.js';
 
@@ -18,15 +20,17 @@ function show(name) {
   }
 }
 
+const catalog = initCatalog({ onAdd: (sku) => cart.add(sku) });
 const cart = initCart(() => {
-  coupon.reset();
+  coupon.onCartChanged();
   pricing.schedule();
-});
-const pricing = initPricing(cart);
+}, catalog);
+const pricing = initPricing(cart, (data) => coupon.sync(data));
 const coupon = initCoupon(cart, pricing);
 initCampaigns();
 initMap(loadCampaigns);
 initCoupons();
+initProducts(() => catalog.load());
 initAudits();
 
 let adminLoaded = false;
@@ -39,15 +43,18 @@ function loginView(user) {
   document.querySelector('.tab[data-view="admin"]').hidden = !isAdmin;
   adminLoaded = false;
   show('shop');
+  catalog.load();
 }
 
 function logoutView() {
   cart.reset();
   pricing.reset();
   coupon.reset();
+  catalog.reset();
   adminLoaded = false;
   clearMap();
-  for (const id of ['campaigns-table', 'coupons-table', 'audits-table']) $(id).replaceChildren();
+  for (const id of ['campaigns-table', 'coupons-table', 'products-table', 'audits-table'])
+    $(id).replaceChildren();
   $('session').hidden = true;
   $('tabs').hidden = true;
   $('session-user').textContent = '';
@@ -68,6 +75,7 @@ for (const tab of document.querySelectorAll('.tab')) {
       loadMap();
       loadCampaigns();
       loadCoupons();
+      loadProducts();
       loadAudits();
     }
   });

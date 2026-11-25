@@ -10,6 +10,8 @@ export interface AppConfig {
   rateLimitMax: number;
   rateLimitAuthMax: number;
   rateLimitCouponMax: number;
+  reservationTtlSeconds: number;
+  auditQuoteTtlSeconds: number;
   bcryptRounds: number;
   trustProxy: boolean;
 }
@@ -25,6 +27,8 @@ export function appConfigFromEnv(env: Env): AppConfig {
     rateLimitMax: env.RATE_LIMIT_MAX,
     rateLimitAuthMax: env.RATE_LIMIT_AUTH_MAX,
     rateLimitCouponMax: env.RATE_LIMIT_COUPON_MAX,
+    reservationTtlSeconds: env.RESERVATION_TTL_SECONDS,
+    auditQuoteTtlSeconds: env.AUDIT_QUOTE_TTL_SECONDS,
     bcryptRounds: env.BCRYPT_ROUNDS,
     trustProxy: env.TRUST_PROXY,
   };

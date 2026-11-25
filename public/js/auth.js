@@ -55,9 +55,9 @@ export function initAuth({ onLogin, onLogout }) {
   });
 
   return {
-    sessionLost(err) {
+    sessionLost() {
       onLogout();
-      setStatus(status, `Session ended (${err.code}). Please log in again.`, 'error');
+      setStatus(status, 'Your session expired. Please log in again.', 'error');
     },
   };
 }

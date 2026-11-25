@@ -4,9 +4,13 @@ import { resolvePricingOwner } from '../services/pricing.owner';
 import { AppError } from '../errors/AppError';
 import type { CalculateRequest } from '../dtos/pricing.dto';
 
-export async function calculate(req: Request, res: Response): Promise<void> {
-  if (!req.auth) throw new AppError(401, 'AUTH_REQUIRED', 'Authentication required');
-  const owned = resolvePricingOwner(req.body as CalculateRequest, req.auth);
-  const data = await calculatePricing(owned);
-  res.status(200).json({ data });
+export function createCalculateHandler(
+  reservationTtlSeconds: number,
+): (req: Request, res: Response) => Promise<void> {
+  return async (req, res) => {
+    if (!req.auth) throw new AppError(401, 'AUTH_REQUIRED', 'Authentication required');
+    const owned = resolvePricingOwner(req.body as CalculateRequest, req.auth);
+    const data = await calculatePricing(owned, reservationTtlSeconds);
+    res.status(200).json({ data });
+  };
 }

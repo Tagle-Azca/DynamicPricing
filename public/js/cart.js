@@ -1,39 +1,11 @@
-import { $, clear, h, money } from './dom.js';
-import { CATALOG } from './catalog.js';
+import { $, clear, h } from './dom.js';
 
 const newCartId = () => `cart-${crypto.randomUUID()}`;
 
 // Cart state and rendering. onChange fires after any change to items/context.
-export function initCart(onChange) {
+export function initCart(onChange, catalog) {
   const qty = new Map(); // sku -> quantity
   let cartId = newCartId();
-
-  function renderCatalog() {
-    const list = $('catalog');
-    clear(list);
-    for (const p of CATALOG) {
-      list.append(
-        h(
-          'li',
-          { class: 'item' },
-          h(
-            'span',
-            { class: 'grow' },
-            h('strong', { text: p.name }),
-            h('span', { class: 'muted', text: ` ${p.category}` }),
-          ),
-          h('span', { class: 'num', text: money(p.unitPrice) }),
-          h('button', {
-            type: 'button',
-            class: 'btn small',
-            'aria-label': `Add ${p.name} to cart`,
-            onClick: () => add(p.sku),
-            text: 'Add',
-          }),
-        ),
-      );
-    }
-  }
 
   function renderCart() {
     const list = $('cart');
@@ -41,7 +13,7 @@ export function initCart(onChange) {
     $('cart-id').textContent = cartId;
     $('cart-empty').hidden = qty.size > 0;
     for (const [sku, q] of qty) {
-      const p = CATALOG.find((c) => c.sku === sku);
+      const p = catalog.find(sku) || { name: sku };
       const id = `qty-${sku}`;
       list.append(
         h(
@@ -98,7 +70,6 @@ export function initCart(onChange) {
     changed();
   });
 
-  renderCatalog();
   renderCart();
 
   return {
@@ -109,14 +80,14 @@ export function initCart(onChange) {
       cartId = newCartId();
       renderCart();
     },
-    payload() {
-      const items = [...qty].map(([sku, quantity]) => {
-        const p = CATALOG.find((c) => c.sku === sku);
-        return { sku, name: p.name, category: p.category, unitPrice: p.unitPrice, quantity };
-      });
+    add,
+    payload(couponCode) {
+      const items = [...qty].map(([sku, quantity]) => ({ sku, quantity }));
       const context = { customerTier: $('tier').value, currency: 'USD' };
       if ($('region').value) context.region = $('region').value;
-      return { cartId, items, context };
+      const body = { cartId, items, context };
+      if (couponCode) body.couponCode = couponCode;
+      return body;
     },
   };
 }

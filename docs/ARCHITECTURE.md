@@ -35,22 +35,36 @@ Flujo de una solicitud: Cliente -> Ruta -> Controlador -> Servicio -> Modelo -> 
 ```mermaid
 sequenceDiagram
   participant C as Cliente
-  participant R as Ruta + zod
+  participant R as Ruta + zod (estricto)
   participant K as PricingController
   participant S as PricingService
+  participant P as CatalogService
   participant E as pricing.rules
+  participant V as coupon.reserve
   participant A as AuditService
   participant DB as MongoDB
-  C->>R: POST /pricing/calculate
+  C->>R: POST /pricing/calculate { cartId, items[{sku, quantity}], context, couponCode? }
+  R-->>C: 400 si un ítem trae unitPrice, name o category
   R->>K: cuerpo validado
-  K->>S: calculatePricing(request)
+  K->>S: calculatePricing(request, ttl)
+  S->>P: resolveItems(items, currency)
+  P->>DB: Product.find(sku en lista, activos)
+  P-->>S: ítems resueltos (o 422 UNKNOWN_SKU / CURRENCY_MISMATCH)
   S->>DB: Campaign.find(activas, startsAt<=now<endsAt)
-  DB-->>S: campañas
   S->>E: evaluateCampaigns(campaigns, items, context)
   E-->>S: reglas aplicadas u omitidas, totales
-  S->>A: recordAudit(request, result)
-  A->>DB: insert pricing_audits (checksum sha256)
-  S-->>K: respuesta con auditId
+  alt sin couponCode
+    S->>A: recordAudit(snapshot)
+    A->>DB: insert pricing_audits (checksum sha256)
+  else con couponCode (una sola transacción)
+    S->>DB: inicia transacción
+    S->>V: reserveCoupon(code, userId, cartId, auditId, total)
+    V->>DB: reserva + descuento de remainingUses (ver abajo)
+    S->>A: recordAudit(snapshot + coupon, session)
+    A->>DB: insert pricing_audits (session)
+    S->>DB: commit (si algo falla, rollback: remainingUses intacto)
+  end
+  S-->>K: respuesta con auditId, finalTotal y coupon?
   K-->>C: 200 { data }
 ```
 
@@ -61,28 +75,54 @@ sequenceDiagram
   participant C as Cliente
   participant K as CouponController
   participant S as CouponService
+  participant V as coupon.reserve
   participant DB as MongoDB
-  C->>K: POST /coupons/apply (validado)
-  K->>S: applyCoupon(request)
-  S->>DB: startSession
-  S->>DB: inicia withTransaction
-  S->>DB: findOne cupón (session)
-  S->>DB: findOne reserva (session)
-  S->>DB: findOneAndUpdate remainingUses>0, $inc -1 (session)
-  alt ningún documento coincidió
-    S-->>K: AppError 409 COUPON_EXHAUSTED (transacción abortada)
-  else coincidió
-    S->>DB: insert CouponReservation (session)
-    S->>DB: commit
-    S-->>K: RESERVED
+  C->>K: POST /coupons/apply { code, auditId } (validado, estricto)
+  K->>S: applyCoupon(request, token.sub, ttl)
+  S->>DB: PricingAudit.findOne({ auditId, context.userId = sub })
+  alt no existe o es ajena
+    S-->>K: 404 AUDIT_NOT_FOUND
   end
-  S->>DB: endSession (finally)
-  K-->>C: 200 { data } o formato de error
+  S->>DB: inicia transacción (connection.transaction)
+  S->>V: reserveCoupon(subtotal = audit.result.total, cartId = audit.cartId)
+  V->>DB: findOne cupón (404 si no existe o es de otro usuario)
+  V->>V: inactivo o vencido -> 409 COUPON_UNAVAILABLE; subtotal < minSubtotal -> 422
+  V->>DB: libera reservas vencidas de ese carrito; existe RESERVED en el carrito/auditoría (cualquier código) -> 409 COUPON_ALREADY_APPLIED
+  V->>DB: findOneAndUpdate remainingUses>0, $inc -1 (409 COUPON_EXHAUSTED)
+  V->>DB: count reservas RESERVED vigentes del usuario >= perUserLimit -> 409 COUPON_LIMIT_REACHED
+  V->>DB: insert CouponReservation { status RESERVED, expiresAt }
+  S->>DB: commit
+  S-->>C: 201 { data }
 ```
 
-Los conflictos de escritura entre transacciones concurrentes son errores transitorios que
-`withTransaction` reintenta, así que `remainingUses` nunca baja de cero y las reservas nunca superan
-`maxUses`.
+El decremento del cupón va antes del conteo por usuario a propósito: dos transacciones simultáneas
+escriben el mismo documento de cupón, una falla con un conflicto de escritura transitorio y se
+reintenta, de modo que la segunda ya ve la reserva confirmada de la primera. Así `perUserLimit` se
+cumple sin carreras, `remainingUses` nunca baja de cero y las reservas nunca superan `maxUses`. Un
+rechazo posterior al decremento aborta la transacción y revierte el uso.
+
+## Ciclo de vida de la reserva
+
+Un solo cupón activo por auditoría y por carrito/usuario: índices únicos parciales (`status: RESERVED`)
+sobre `{auditId}` y `{cartId, userId}` más una comprobación dentro de la transacción; el duplicado da 409
+`COUPON_ALREADY_APPLIED`. El cupón lleva `currency` y se rechaza con 422 `CURRENCY_MISMATCH` si difiere
+de la auditoría; `/coupons/apply` rechaza auditorías más viejas que `AUDIT_QUOTE_TTL_SECONDS` (409
+`AUDIT_STALE`). El bloque `coupon` de una auditoría es válido solo mientras su reserva esté activa: la
+auditoría es inmutable y no refleja la liberación o el vencimiento de la reserva.
+
+```mermaid
+stateDiagram-v2
+  [*] --> RESERVED: calculate con couponCode / apply
+  RESERVED --> RELEASED: DELETE /coupons/reservations/:id (dueño)
+  RESERVED --> RELEASED: releaseExpiredReservations(now) si expiresAt <= now
+  RELEASED --> [*]
+```
+
+La transición es un `findOneAndUpdate` filtrado por `status: RESERVED` dentro de una transacción junto
+con el `$inc: +1` del cupón (con tope en `maxUses`), así que cada reserva devuelve su uso exactamente
+una vez aunque coincidan una liberación manual y la barrida. La barrida (`reservation.sweeper.ts`)
+la arranca solo `server.ts` con un `setInterval` con `unref()`. El índice único `{couponCode, cartId}`
+es parcial (`status: RESERVED`).
 
 ## Secuencia: GET /api/v1/pricing/audit/:auditId
 
@@ -111,7 +151,9 @@ sequenceDiagram
 Los paths de `pricing_audits` son `immutable: true`, el esquema es `strict: 'throw'` y los pre-hooks
 de todo update, replace, delete, bulkWrite y de update, delete o re-guardado a nivel de documento
 lanzan `AppError(409, AUDIT_IMMUTABLE)`. El checksum es el sha256 del JSON canónico (con llaves
-ordenadas) de `{ auditId, cartId, context, items, result }`. (Las escrituras hechas fuera de
+ordenadas) de `{ auditId, cartId, context, items, result }`, más `coupon` solo cuando la auditoría se
+calculó con un cupón (las auditorías anteriores, sin ese campo, siguen verificando). Los ítems guardados
+son los resueltos desde el catálogo. (Las escrituras hechas fuera de
 Mongoose, directamente sobre la base de datos, no se bloquean en esta capa, y el checksum sin llave
 solo detecta ediciones accidentales o simples, no a quien lo recalcula; planeado: HMAC con un secreto
 dedicado.)
@@ -177,29 +219,13 @@ sequenceDiagram
   Z->>H: continúa (las reglas de propiedad van dentro del servicio)
 ```
 
-## Secuencia: POST /api/v1/coupons/apply con cupón ligado a un usuario
+## Cupón ligado a un usuario
 
-```mermaid
-sequenceDiagram
-  participant C as Cliente (token)
-  participant K as CouponController
-  participant S as CouponService
-  participant DB as MongoDB (transacción)
-  C->>K: POST /coupons/apply { code, cartId, subtotal }
-  K->>S: applyCoupon(body, token.sub)
-  S->>DB: buscar cupón (404 COUPON_NOT_FOUND)
-  S->>S: inactivo o vencido -> 409 COUPON_UNAVAILABLE
-  S->>S: coupon.userId definido y distinto de sub -> 404 COUPON_NOT_FOUND (igual que un código desconocido)
-  S->>S: subtotal < minSubtotal -> 422 MIN_SUBTOTAL_NOT_MET
-  S->>DB: findOneAndUpdate remainingUses>0, $inc -1 (409 COUPON_EXHAUSTED)
-  S->>DB: insert reserva { couponCode, userId, cartId } única (409 COUPON_ALREADY_APPLIED)
-  S-->>C: 200 RESERVED (commit)
-```
+`coupon.userId` definido y distinto del sujeto del token da 404 `COUPON_NOT_FOUND`, igual que un código
+desconocido (evalúa antes que el estado activo o vencido). Un cupón de un solo uso (`maxUses` 1) llega a
+`remainingUses` 0 al reservarse; la reserva registra quién lo usó, en qué carrito y en qué auditoría.
 
-Un cupón ligado de un solo uso (`maxUses` 1) llega a `remainingUses` 0 al aplicarse, que es como se
-consume; la fila de la reserva registra quién lo usó y en qué carrito.
-
-## Secuencia: catálogo de administración (campañas y cupones)
+## Secuencia: catálogo de administración (campañas, cupones y productos)
 
 ```mermaid
 sequenceDiagram
@@ -218,7 +244,8 @@ sequenceDiagram
   S-->>Ad: 200 o 404 CAMPAIGN_NOT_FOUND
 ```
 
-El cálculo de precios toma estas campañas en el siguiente `/pricing/calculate`, porque lee las
+`/admin/products` sigue el mismo patrón (`AdminProductsService`: 409 `PRODUCT_EXISTS`, 404
+`PRODUCT_NOT_FOUND`) y `GET /catalog` expone solo los productos activos. El cálculo de precios toma estas campañas en el siguiente `/pricing/calculate`, porque lee las
 campañas activas por rango de fechas cada vez (nada se guarda en caché ni está escrito en el código).
 
 ### Administración de regiones

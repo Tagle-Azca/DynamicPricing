@@ -34,8 +34,8 @@ describe('NoSQL operator rejection [DoD-11]', () => {
       ['/api/v1/pricing/calculate', JSON.stringify({ ...cart, cartId: { $gt: '' } })],
       ['/api/v1/pricing/calculate', JSON.stringify({ ...cart, $where: '1' })],
       ['/api/v1/pricing/calculate', `{"cartId":"c","items":[],"context":{},"__proto__":{"x":1}}`],
-      ['/api/v1/coupons/apply', JSON.stringify({ code: { $ne: '' }, cartId: 'c', subtotal: 1 })],
-      ['/api/v1/coupons/apply', `{"code":"A","cartId":"c","subtotal":1,"__proto__":{"a":1}}`],
+      ['/api/v1/coupons/apply', JSON.stringify({ code: { $ne: '' }, auditId: 'c' })],
+      ['/api/v1/coupons/apply', `{"code":"A","auditId":"c","__proto__":{"a":1}}`],
     ];
     for (const [path, body] of attempts) {
       const res = await request(app)

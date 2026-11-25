@@ -17,6 +17,8 @@ export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     rateLimitMax: 100000,
     rateLimitAuthMax: 100000,
     rateLimitCouponMax: 100000,
+    reservationTtlSeconds: 900,
+    auditQuoteTtlSeconds: 900,
     bcryptRounds: 10,
     trustProxy: false,
     ...overrides,

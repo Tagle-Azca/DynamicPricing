@@ -40,3 +40,14 @@ export async function run(h: Harness, c: Check): Promise<void> {
     pass: res.status === c.status && (c.verify ? c.verify(res.body) : true),
   });
 }
+
+/** Calculates a one-keyboard cart for the given token and returns the audit id. */
+export async function auditFor(h: Harness, token: string, cartId: string): Promise<string> {
+  const body = {
+    cartId,
+    items: [{ sku: 'SKU-KEYBOARD', quantity: 4 }],
+    context: { currency: 'USD' },
+  };
+  const res = await h.http('POST', '/api/v1/pricing/calculate', body, token);
+  return String(dig(res.body, 'data', 'auditId'));
+}

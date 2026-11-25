@@ -1,14 +1,16 @@
 import { z } from 'zod';
-import { cents, strictDate, upperCode } from './admin.common.dto';
+import { cents, currencyCode, strictDate, upperCode } from './admin.common.dto';
 
 const couponFields = {
   discountType: z.enum(['percentage', 'fixed']),
   value: cents,
   maxUses: z.number().int().min(1).max(1_000_000),
   minSubtotal: cents.default(0),
+  currency: currencyCode.default('USD'),
   expiresAt: strictDate,
   isActive: z.boolean().default(true),
   userId: z.string().min(1).max(128).optional(),
+  perUserLimit: z.number().int().min(1).max(1000).default(1),
 };
 
 export const createCouponSchema = z
@@ -24,6 +26,8 @@ export const updateCouponSchema = z
     isActive: couponFields.isActive,
     expiresAt: couponFields.expiresAt,
     minSubtotal: cents,
+    currency: currencyCode,
+    perUserLimit: couponFields.perUserLimit,
   })
   .partial()
   .strict()

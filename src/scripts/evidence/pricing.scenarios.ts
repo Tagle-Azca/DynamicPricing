@@ -1,57 +1,80 @@
 import { Harness, dig } from './harness';
-import { computeChecksum } from '../../services/audit.checksum';
+import { isChecksumValid } from '../../services/audit.query.service';
+import type { AuditSnapshot } from '../../dtos/audit.dto';
 
 const validCart = {
   cartId: 'cart-evidence-1',
   items: [
-    { sku: 'SKU-1', name: 'Keyboard', category: 'electronics', unitPrice: 2500, quantity: 2 },
-    { sku: 'SKU-2', category: 'accessories', unitPrice: 1000, quantity: 1 },
+    { sku: 'SKU-KEYBOARD', quantity: 2 },
+    { sku: 'SKU-CABLE', quantity: 1 },
   ],
   context: { customerTier: 'standard', currency: 'USD' },
 };
 
+const CALCULATE = '/api/v1/pricing/calculate';
+
+async function expectError(
+  h: Harness,
+  name: string,
+  body: unknown,
+  status: number,
+  code: string,
+): Promise<void> {
+  const res = await h.http('POST', CALCULATE, body);
+  h.record({
+    name,
+    method: 'POST',
+    path: CALCULATE,
+    requestBody: body,
+    status: res.status,
+    responseBody: res.body,
+    expected: `${status} ${code}`,
+    pass: res.status === status && dig(res.body, 'error', 'code') === code,
+  });
+}
+
 export async function runPricingScenarios(h: Harness): Promise<void> {
-  const calc = await h.http('POST', '/api/v1/pricing/calculate', validCart);
+  const catalog = await h.http('GET', '/api/v1/catalog');
+  const products = dig(catalog.body, 'data');
+  h.record({
+    name: 'Catalog lists the active products (server-side prices)',
+    method: 'GET',
+    path: '/api/v1/catalog',
+    status: catalog.status,
+    responseBody: catalog.body,
+    expected: '200, six seeded products',
+    pass: catalog.status === 200 && Array.isArray(products) && products.length === 6,
+  });
+
+  const calc = await h.http('POST', CALCULATE, validCart);
   const auditId = String(dig(calc.body, 'data', 'auditId'));
   const applied = dig(calc.body, 'data', 'appliedRules');
   h.record({
-    name: 'Calculate pricing (rules applied, auditId returned)',
+    name: 'Calculate pricing (prices resolved by the server, rules applied, auditId returned)',
     method: 'POST',
-    path: '/api/v1/pricing/calculate',
+    path: CALCULATE,
     requestBody: validCart,
     status: calc.status,
     responseBody: calc.body,
-    expected: '200, SUMMER10 + FIXED5 applied, total 4900',
+    expected: '200, SUMMER10 + FIXED5 applied, total 4900, finalTotal 4900',
     pass:
       calc.status === 200 &&
       Array.isArray(applied) &&
       applied.length === 2 &&
       dig(calc.body, 'data', 'total') === 4900 &&
+      dig(calc.body, 'data', 'finalTotal') === 4900 &&
       auditId.length === 36,
   });
 
   const invalid = { cartId: 'x', items: [], context: {} };
-  const bad = await h.http('POST', '/api/v1/pricing/calculate', invalid);
-  h.record({
-    name: 'Calculate with invalid body',
-    method: 'POST',
-    path: '/api/v1/pricing/calculate',
-    requestBody: invalid,
-    status: bad.status,
-    responseBody: bad.body,
-    expected: '400 VALIDATION_ERROR',
-    pass: bad.status === 400 && dig(bad.body, 'error', 'code') === 'VALIDATION_ERROR',
-  });
+  await expectError(h, 'Calculate with invalid body', invalid, 400, 'VALIDATION_ERROR');
+  const priced = { ...validCart, items: [{ sku: 'SKU-KEYBOARD', quantity: 1, unitPrice: 1 }] };
+  await expectError(h, 'Calculate with a client-supplied price', priced, 400, 'VALIDATION_ERROR');
+  const ghost = { ...validCart, items: [{ sku: 'SKU-GHOST', quantity: 1 }] };
+  await expectError(h, 'Calculate with an unknown SKU', ghost, 422, 'UNKNOWN_SKU');
 
   const audit = await h.http('GET', `/api/v1/pricing/audit/${auditId}`);
-  const data = dig(audit.body, 'data') as Record<string, unknown> | undefined;
-  const snapshot = data && {
-    auditId: data.auditId,
-    cartId: data.cartId,
-    context: data.context,
-    items: data.items,
-    result: data.result,
-  };
+  const data = dig(audit.body, 'data') as AuditSnapshot | undefined;
   h.record({
     name: 'Get audit snapshot (checksum matches recomputation)',
     method: 'GET',
@@ -59,7 +82,7 @@ export async function runPricingScenarios(h: Harness): Promise<void> {
     status: audit.status,
     responseBody: audit.body,
     expected: '200, stored checksum equals sha256 of canonical snapshot',
-    pass: audit.status === 200 && !!snapshot && data.checksum === computeChecksum(snapshot),
+    pass: audit.status === 200 && !!data && isChecksumValid(data),
   });
 
   const badId = await h.http('GET', '/api/v1/pricing/audit/not-a-uuid');

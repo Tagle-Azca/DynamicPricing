@@ -59,6 +59,8 @@
       <section id="view-shop" class="grid-shop" aria-label="Shop" hidden>
         <div class="card">
           <h2>Products</h2>
+          <p id="catalog-status" class="status" role="alert"></p>
+          <button type="button" id="catalog-retry" class="btn secondary" hidden>Retry</button>
           <ul id="catalog" class="list"></ul>
         </div>
 
@@ -97,8 +99,9 @@
         <div class="card">
           <h2>Price breakdown</h2>
           <p id="calc-status" class="status" role="status" aria-live="polite"></p>
-          <div id="breakdown" aria-live="polite"></div>
+          <div id="breakdown" aria-live="polite" aria-atomic="true"></div>
           <h3>Coupon</h3>
+          <p class="hint">The coupon is reserved for you when applied and checked by the server.</p>
           <form id="coupon-form" novalidate>
             <label for="coupon-code">Coupon code</label>
             <div class="row">
@@ -212,6 +215,17 @@
                 ><input id="k-uses" name="maxUses" type="number" min="1" step="1" required />
               </div>
               <div class="field">
+                <label for="k-per-user">Per-user limit (default 1)</label
+                ><input
+                  id="k-per-user"
+                  name="perUserLimit"
+                  type="number"
+                  min="1"
+                  max="1000"
+                  step="1"
+                />
+              </div>
+              <div class="field">
                 <label for="k-exp">Expires at</label
                 ><input id="k-exp" name="expiresAt" type="datetime-local" required />
               </div>
@@ -220,6 +234,39 @@
                 ><input id="k-user" name="userId" maxlength="128" />
               </div>
               <div class="span"><button type="submit" class="btn">Create coupon</button></div>
+            </form>
+          </details>
+        </div>
+
+        <div class="card">
+          <h2>Products</h2>
+          <p id="products-status" class="status" role="alert"></p>
+          <div class="table-wrap"><table id="products-table"></table></div>
+          <details class="create">
+            <summary>New product</summary>
+            <form id="product-create-form" class="form-grid" novalidate>
+              <p class="hint span">Price is an integer number of cents.</p>
+              <div class="field">
+                <label for="p-sku">SKU</label
+                ><input id="p-sku" name="sku" required maxlength="64" />
+              </div>
+              <div class="field">
+                <label for="p-name">Name</label
+                ><input id="p-name" name="name" required maxlength="200" />
+              </div>
+              <div class="field">
+                <label for="p-category">Category</label
+                ><input id="p-category" name="category" required maxlength="64" />
+              </div>
+              <div class="field">
+                <label for="p-price">Price (cents)</label
+                ><input id="p-price" name="unitPrice" type="number" min="0" step="1" required />
+              </div>
+              <div class="field">
+                <label for="p-currency">Currency (default USD)</label
+                ><input id="p-currency" name="currency" maxlength="3" />
+              </div>
+              <div class="span"><button type="submit" class="btn">Create product</button></div>
             </form>
           </details>
         </div>
@@ -238,8 +285,8 @@
 
     <footer class="footer">
       <p>
-        Demo only: the API has no product catalog yet, so product names and prices come from this
-        client. Money is shown from integer cents.
+        Demo only. Products and every price shown here come from the server. Money is shown from
+        integer cents.
       </p>
     </footer>
   </body>

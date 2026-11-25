@@ -32,7 +32,16 @@ export function createApp(config: AppConfig): Express {
     });
   });
   const tokens = createTokenService(config);
-  app.use('/api/v1', createApiRouter({ tokens, limiters, bcryptRounds: config.bcryptRounds }));
+  app.use(
+    '/api/v1',
+    createApiRouter({
+      tokens,
+      limiters,
+      bcryptRounds: config.bcryptRounds,
+      reservationTtlSeconds: config.reservationTtlSeconds,
+      auditQuoteTtlSeconds: config.auditQuoteTtlSeconds,
+    }),
+  );
   app.use(notFound);
   app.use(errorHandler);
   return app;

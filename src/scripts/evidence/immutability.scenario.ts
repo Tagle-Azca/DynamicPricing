@@ -1,6 +1,7 @@
 import { Harness } from './harness';
 import { PricingAudit } from '../../models/pricingAudit.model';
-import { computeChecksum } from '../../services/audit.checksum';
+import { isChecksumValid } from '../../services/audit.query.service';
+import type { AuditSnapshot } from '../../dtos/audit.dto';
 
 async function rejects(fn: () => Promise<unknown>): Promise<string> {
   try {
@@ -28,16 +29,7 @@ export async function runImmutabilityScenario(h: Harness): Promise<void> {
   };
   const after = await PricingAudit.findOne({ auditId: doc.auditId }).lean();
   const unchanged = JSON.stringify(after) === before;
-  const checksumOk =
-    !!after &&
-    after.checksum ===
-      computeChecksum({
-        auditId: after.auditId,
-        cartId: after.cartId,
-        context: after.context,
-        items: after.items,
-        result: after.result,
-      });
+  const checksumOk = !!after && isChecksumValid(after as unknown as AuditSnapshot);
 
   h.record({
     name: 'Immutability: direct update/delete attempts rejected, document unchanged',
