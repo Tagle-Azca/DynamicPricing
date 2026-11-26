@@ -61,7 +61,11 @@ export async function listCoupons(): Promise<unknown[]> {
 }
 
 export async function updateCoupon(code: string, patch: UpdateCoupon): Promise<unknown> {
-  const updated = await Coupon.findOneAndUpdate({ code }, { $set: patch }, { new: true })
+  const updated = await Coupon.findOneAndUpdate(
+    { code },
+    { $set: patch },
+    { returnDocument: 'after' },
+  )
     .select(HIDE)
     .lean();
   if (!updated) throw new AppError(404, 'COUPON_NOT_FOUND', `Coupon ${code} not found`);

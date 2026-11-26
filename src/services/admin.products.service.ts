@@ -29,13 +29,23 @@ export async function createProduct(input: CreateProduct): Promise<unknown> {
 }
 
 export async function updateProduct(sku: string, patch: UpdateProduct): Promise<unknown> {
-  const { imageUrl: rawImage, ...rest } = patch;
-  const imageUrl = resolveImageUrl(rawImage);
+  const imageUrl = resolveImageUrl(patch.imageUrl);
+  // Allowlist: only these fields can ever reach the update document.
+  const fields = {
+    name: patch.name,
+    category: patch.category,
+    unitPrice: patch.unitPrice,
+    currency: patch.currency,
+    isActive: patch.isActive,
+  };
+  const set = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
   const update = {
-    $set: { ...rest, ...(imageUrl ? { imageUrl } : {}) },
+    $set: { ...set, ...(imageUrl ? { imageUrl } : {}) },
     ...(imageUrl === null ? { $unset: { imageUrl: 1 as const } } : {}),
   };
-  const updated = await Product.findOneAndUpdate({ sku: { $eq: sku } }, update, { new: true })
+  const updated = await Product.findOneAndUpdate({ sku: { $eq: sku } }, update, {
+    returnDocument: 'after',
+  })
     .select(FIELDS)
     .lean();
   if (!updated) throw new AppError(404, 'PRODUCT_NOT_FOUND', `Product ${sku} not found`);

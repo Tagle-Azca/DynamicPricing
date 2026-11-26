@@ -78,9 +78,12 @@ export async function runReservationScenarios(h: Harness): Promise<void> {
   });
 
   const second = await h.http('POST', CALCULATE, cartWithCoupon('cart-r3'));
-  await CouponReservation.updateMany({ status: 'RESERVED', couponCode: 'LASTONE' }, [
-    { $set: { expiresAt: new Date(Date.now() - 1000) } },
-  ]);
+  await CouponReservation.updateMany(
+    { status: 'RESERVED', couponCode: 'LASTONE' },
+    {
+      $set: { expiresAt: new Date(Date.now() - 1000) },
+    },
+  );
   const swept = await releaseExpiredReservations();
   const sweptAgain = await releaseExpiredReservations();
   h.record({

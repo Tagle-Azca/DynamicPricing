@@ -17,7 +17,7 @@ async function restoreUse(code: string, session: ClientSession): Promise<number>
   const restored = await Coupon.findOneAndUpdate(
     { _id: coupon._id, remainingUses: mongoose.trusted({ $lt: coupon.maxUses }) },
     { $inc: { remainingUses: 1 } },
-    { session, new: true },
+    { session, returnDocument: 'after' },
   );
   return (restored ?? coupon).remainingUses;
 }
