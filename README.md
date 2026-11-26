@@ -177,7 +177,7 @@ para un id inexistente. El limitador de tasa usa memoria, así que los límites 
 `npm test` (Vitest y Supertest sobre un replica set en memoria), `npm run evidence` (el reporte se
 sube como artefacto), un job separado de `npm audit --audit-level=high` y, solo en pushes a `main`, un
 `docker build` (solo construye, no publica nada). `.github/workflows/codeql.yml` corre CodeQL en pull
-requests, en `main` y cada semana. `.github/dependabot.yml` actualiza npm y GitHub Actions cada semana.
+requests, en `main` y cada semana. Las dependencias vulnerables las detecta el job de `npm audit`; no hay actualizaciones automáticas.
 El CI genera un `JWT_SECRET` aleatorio al ejecutarse; no se guarda ningún secreto en el repositorio.
 
 ```bash
