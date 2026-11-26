@@ -1,5 +1,5 @@
 import { Harness, dig } from './harness';
-import { loginAs, run } from './admin.helpers';
+import { auditFor, loginAs, run } from './admin.helpers';
 
 const A = '/api/v1/admin';
 
@@ -64,7 +64,7 @@ export async function runAdminScenarios(h: Harness): Promise<void> {
   });
   const cart = (region: string, cartId: string): unknown => ({
     cartId,
-    items: [{ sku: 'SKU-9', category: 'toys', unitPrice: 10000, quantity: 1 }],
+    items: [{ sku: 'SKU-HEADPHONES', quantity: 1 }],
     context: { currency: 'USD', region },
   });
   await run(h, {
@@ -104,12 +104,14 @@ export async function runAdminScenarios(h: Harness): Promise<void> {
     expected: '201 with userId and remainingUses 1',
     verify: (b) => dig(b, 'data', 'userId') === owner.id,
   });
-  const apply = { code: 'VIP-OWNER', cartId: 'vip-1', subtotal: 20000 };
+  const apply = { code: 'VIP-OWNER', auditId: await auditFor(h, owner.token, 'vip-1') };
+  const apply2 = { code: 'VIP-OWNER', auditId: await auditFor(h, owner.token, 'vip-2') };
+  const stranger = { code: 'VIP-OWNER', auditId: await auditFor(h, customerToken, 'vip-3') };
   await run(h, {
     name: 'Another user applies the bound coupon',
     method: 'POST',
     path: '/api/v1/coupons/apply',
-    body: apply,
+    body: stranger,
     token: customerToken,
     status: 404,
     expected: '404 COUPON_NOT_FOUND (same as an unknown code)',
@@ -121,7 +123,7 @@ export async function runAdminScenarios(h: Harness): Promise<void> {
     path: '/api/v1/coupons/apply',
     body: apply,
     token: owner.token,
-    status: 200,
+    status: 201,
     expected: '200 RESERVED, remainingUses 0',
     verify: (b) => dig(b, 'data', 'remainingUses') === 0,
   });
@@ -129,7 +131,7 @@ export async function runAdminScenarios(h: Harness): Promise<void> {
     name: 'Owner reuses the consumed coupon on another cart',
     method: 'POST',
     path: '/api/v1/coupons/apply',
-    body: { ...apply, cartId: 'vip-2' },
+    body: apply2,
     token: owner.token,
     status: 409,
     expected: '409 COUPON_EXHAUSTED',

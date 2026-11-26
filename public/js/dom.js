@@ -16,6 +16,11 @@ export function h(tag, props = {}, ...children) {
   return node;
 }
 
+// Append only real nodes: Element.append(null) would add the text "null".
+export function appendAll(parent, ...nodes) {
+  parent.append(...nodes.flat().filter(Boolean));
+}
+
 export const $ = (id) => document.getElementById(id);
 
 export function clear(node) {
@@ -27,14 +32,21 @@ export function setStatus(node, message, kind = 'info') {
   node.dataset.kind = message ? kind : '';
 }
 
+// While busy the button is disabled and, if it has data-busy-label, shows that text.
 export function setBusy(button, busy) {
   button.disabled = busy;
   button.setAttribute('aria-busy', String(busy));
+  const busyLabel = button.dataset.busyLabel;
+  if (!busyLabel) return;
+  if (busy) {
+    button.dataset.label = button.textContent;
+    button.textContent = busyLabel;
+  } else if (button.dataset.label) {
+    button.textContent = button.dataset.label;
+  }
 }
 
-export function money(cents) {
-  return (Number(cents) / 100).toFixed(2);
-}
+export { money } from './money.js';
 
 export function formatDate(value) {
   const d = new Date(value);

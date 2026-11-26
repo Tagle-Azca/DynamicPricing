@@ -3,14 +3,15 @@
 API REST (Node, TypeScript, Express, Mongoose, Zod) que ofrece:
 
 1. **Cálculo de precios por reglas** a partir de campañas en MongoDB (`POST /api/v1/pricing/calculate`).
-2. **Reserva transaccional de cupones** sin sobreventa (`POST /api/v1/coupons/apply`).
+2. **Reserva transaccional de cupones** sin sobreventa (`POST /api/v1/coupons/apply`, o `couponCode` en el cálculo), con ciclo de vida (liberar y expirar) y límite por usuario.
 3. **Snapshots de auditoría de precios inmutables** (`GET /api/v1/pricing/audit/:auditId`).
+4. **Catálogo de productos en el servidor** (`GET /api/v1/catalog`, administración en `/api/v1/admin/products`): los precios nunca vienen del cliente.
 
 El Entregable 2 agrega autenticación JWT con roles, verificación de propiedad, cupones de un solo uso
 ligados a un usuario, campañas por región, CRUD de campañas y cupones para el admin, un respaldo de
 auditoría (verificar y exportar), una interfaz web con mapa de regiones, endurecimiento de la API y un
 pipeline de CI. Evidencia: [docs/evidence/EVIDENCE.md](docs/evidence/EVIDENCE.md). Diagramas de flujo:
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Todos los montos son enteros en centavos.
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Contrato de la API (OpenAPI 3): [docs/openapi.yaml](docs/openapi.yaml). Todos los montos son enteros en centavos.
 
 ## Instalación
 
@@ -22,18 +23,20 @@ cp .env.example .env
 `.env` está en `.gitignore`. `.env.example` solo contiene valores de ejemplo y `JWT_SECRET` está vacío
 a propósito: el servidor no arranca sin él. Genera uno con `openssl rand -hex 32`.
 
-| Variable                                                           | Valor por defecto                             | Notas                                                           |
-| ------------------------------------------------------------------ | --------------------------------------------- | --------------------------------------------------------------- |
-| `MONGODB_URI`                                                      | requerida                                     | URI de replica set (transacciones)                              |
-| `JWT_SECRET`                                                       | requerida                                     | Mínimo 32 caracteres, nunca se sube al repositorio              |
-| `JWT_TTL_SECONDS`                                                  | 900                                           | De 60 a 86400                                                   |
-| `JWT_ISSUER` / `JWT_AUDIENCE`                                      | dynamic-pricing-api / dynamic-pricing-clients | Se verifican en cada solicitud                                  |
-| `CORS_ORIGINS`                                                     | vacío                                         | Orígenes http(s) separados por coma; `*` se rechaza             |
-| `RATE_LIMIT_WINDOW_MS`                                             | 60000                                         | Ventana de todos los limitadores                                |
-| `RATE_LIMIT_MAX` / `RATE_LIMIT_AUTH_MAX` / `RATE_LIMIT_COUPON_MAX` | 100 / 10 / 10                                 | Global por IP, registro+login por IP, aplicar cupón por usuario |
-| `BCRYPT_ROUNDS`                                                    | 12                                            | De 10 a 14                                                      |
-| `TRUST_PROXY`                                                      | false                                         | Usar true solo detrás de un proxy de confianza                  |
-| `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`                         | sin definir                                   | `npm run seed` crea este admin si ambas están definidas         |
+| Variable                                                           | Valor por defecto                             | Notas                                                                                            |
+| ------------------------------------------------------------------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `MONGODB_URI`                                                      | requerida                                     | URI de replica set (transacciones)                                                               |
+| `JWT_SECRET`                                                       | requerida                                     | Mínimo 32 caracteres, nunca se sube al repositorio                                               |
+| `JWT_TTL_SECONDS`                                                  | 900                                           | De 60 a 86400                                                                                    |
+| `JWT_ISSUER` / `JWT_AUDIENCE`                                      | dynamic-pricing-api / dynamic-pricing-clients | Se verifican en cada solicitud                                                                   |
+| `CORS_ORIGINS`                                                     | vacío                                         | Orígenes http(s) separados por coma; `*` se rechaza                                              |
+| `RATE_LIMIT_WINDOW_MS`                                             | 60000                                         | Ventana de todos los limitadores                                                                 |
+| `RATE_LIMIT_MAX` / `RATE_LIMIT_AUTH_MAX` / `RATE_LIMIT_COUPON_MAX` | 100 / 10 / 10                                 | Global por IP, registro+login por IP, aplicar cupón por usuario                                  |
+| `RESERVATION_TTL_SECONDS`                                          | 900                                           | Vigencia de una reserva de cupón (1 a 86400); la barrida la libera al vencer                     |
+| `AUDIT_QUOTE_TTL_SECONDS`                                          | 900                                           | Antigüedad máxima de una auditoría para aplicarle un cupón (1 a 86400); si no, 409 `AUDIT_STALE` |
+| `BCRYPT_ROUNDS`                                                    | 12                                            | De 10 a 14                                                                                       |
+| `TRUST_PROXY`                                                      | false                                         | Usar true solo detrás de un proxy de confianza                                                   |
+| `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`                         | sin definir                                   | `npm run seed` crea este admin si ambas están definidas                                          |
 
 ## MongoDB (se requiere replica set para las transacciones)
 
@@ -49,7 +52,9 @@ conexión `mongodb+srv://...`, incluyendo un nombre de base de datos como `/dyna
 ## Ejecución
 
 ```bash
-npm run seed   # idempotente: reinicia campañas, cupones y reservas (nunca las auditorías)
+npm run seed   # idempotente: reinicia productos, campañas, cupones y reservas (nunca las auditorías)
+# ADVERTENCIA: borra y recrea esos datos. Se niega a correr con NODE_ENV=production o con una base
+# que no sea local (localhost/127.0.0.1). Para forzarlo a propósito: npm run seed -- --force
 npm run dev    # tsx watch src/server.ts
 npm run build && npm start
 ```
@@ -86,24 +91,26 @@ Cómo ejecutarla:
 
 Qué se puede hacer:
 
-- **Tienda** (cualquier usuario, primero se registra): agregar productos al carrito, elegir el nivel
-  del cliente y una región, ver el desglose de precio en vivo y aplicar un cupón.
+- **Tienda** (cualquier usuario, primero se registra): el catálogo viene de `GET /catalog`; el carrito
+  envía solo `sku` y `quantity` (más `couponCode`), y el subtotal, los descuentos, el cupón y el total
+  final los muestra tal como los calcula el servidor.
 - **Admin** (iniciar sesión con el admin del seed): un mapa mundial donde al pasar el cursor sobre un
   país se ven sus descuentos y al hacer clic se agrega o quita ese país de una campaña, además de
-  campañas, cupones y auditorías (verificar el checksum, exportar JSON o CSV).
+  productos (crear y editar precios), campañas, cupones y auditorías (verificar el checksum, exportar JSON o CSV).
 
-El JWT se guarda solo en memoria, así que al recargar la página se cierra la sesión. El catálogo de la
-tienda está escrito en la interfaz (el catálogo de productos en el servidor sigue pendiente).
+El JWT se guarda solo en memoria, así que al recargar la página se cierra la sesión.
 
 ## Limitaciones conocidas
 
-- El `subtotal` del cupón lo envía el cliente y la reserva todavía no la consume ninguna compra.
-  Planeado: aplicar por `auditId` (ligado a la feature de compra en una sola solicitud).
-- Un usuario puede usar un cupón global de varios usos en varios carritos. Un límite por usuario
-  rompería la evidencia de concurrencia con 25 solicitudes del Entregable 1. Planeado: `maxUsesPerUser`.
+- `POST /coupons/apply` solo **reserva** (`RESERVED`); no es una compra. El cupón solo pasa a `CONSUMED`
+  con `POST /orders` (ver «Frontera de confianza»). Las reservas no consumidas se liberan (`DELETE`) o
+  expiran. La barrida de expiración corre dentro del proceso del servidor (cada 30 s); si hay varias
+  instancias, ejecutarla en todas es seguro porque la liberación es idempotente.
 - El checksum de la auditoría es un SHA-256 sin llave: detecta ediciones accidentales o simples, pero no
   a alguien con acceso de escritura a MongoDB que lo recalcule. Planeado: HMAC-SHA256 con un secreto
   dedicado.
+- Fuera de alcance de esta entrega: impuestos, eventos de cupones y verificación masiva, revocación de
+  tokens y límite de intentos de inicio de sesión por cuenta.
 
 ## Evidencia
 
@@ -114,7 +121,8 @@ npm run evidence
 Genera un `JWT_SECRET` aleatorio si no hay uno, crea un cliente, inicia sesión por HTTP y envía el
 token en cada solicitud. Levanta un replica set de MongoDB en memoria (`mongodb-memory-server`, el
 binario se descarga la primera vez), carga los datos de ejemplo, ejecuta la app, hace solicitudes HTTP
-reales para 30 escenarios (incluida una prueba de concurrencia de 25 solicitudes, la inmutabilidad de
+reales para 46 escenarios (catálogo y productos, cupones por `auditId`, liberación y expiración de
+reservas, una prueba de concurrencia de 25 solicitudes, la inmutabilidad de
 la auditoría y una prueba de arranque de `server.ts` con SIGINT) y escribe
 `docs/evidence/EVIDENCE.md`. El código de salida es distinto de cero si algún escenario falla.
 
@@ -146,9 +154,12 @@ tokens de refresco ni revocación: un cambio de rol se aplica cuando el token ex
 | `POST /api/v1/auth/register`                                    | público, con límite de tasa                              |
 | `POST /api/v1/auth/login`                                       | público, con límite de tasa                              |
 | `GET /api/v1/auth/me`                                           | customer, admin                                          |
+| `GET /api/v1/catalog`                                           | customer, admin (solo productos activos)                 |
 | `POST /api/v1/pricing/calculate`                                | customer (solo su propio userId), admin                  |
 | `GET /api/v1/pricing/audit/:id`                                 | customer (solo sus auditorías), admin (cualquiera)       |
 | `POST /api/v1/coupons/apply`                                    | customer, admin, límite de tasa más estricto por usuario |
+| `DELETE /api/v1/coupons/reservations/:id`                       | dueño de la reserva, mismo límite de tasa                |
+| `GET/POST /api/v1/admin/products`, `PATCH .../products/:sku`    | solo admin                                               |
 | `GET /api/v1/admin/audits`                                      | solo admin (`limit` 1..100, `userId`, `cartId`)          |
 | `GET /api/v1/admin/audits/:id`                                  | solo admin, devuelve `checksumValid` (recalculado)       |
 | `GET /api/v1/admin/audits/export`                               | solo admin, `format=json\|csv`, `from`, `to`             |
@@ -178,19 +189,35 @@ docker run --rm -p 3000:3000 --env-file .env dynamic-pricing
 
 Éxito: `{ "data": ... }`. Error: `{ "error": { "code", "message", "details?" } }`.
 
+### GET /api/v1/catalog
+
+Cualquier usuario autenticado. Devuelve `{ "data": [{ sku, name, category, unitPrice, currency }] }` solo
+con productos activos, ordenados por `sku`.
+
 ### POST /api/v1/pricing/calculate
 
 ```bash
 curl -X POST localhost:3000/api/v1/pricing/calculate -H 'content-type: application/json' \
   -H "Authorization: Bearer $TOKEN" -d '{
   "cartId": "cart-1",
-  "items": [{ "sku": "SKU-1", "category": "electronics", "unitPrice": 2500, "quantity": 2 }],
-  "context": { "customerTier": "gold", "currency": "USD" }
+  "items": [{ "sku": "SKU-KEYBOARD", "quantity": 2 }],
+  "context": { "currency": "USD" },
+  "couponCode": "WELCOME10"
 }'
 ```
 
+Cada ítem es solo `{ sku, quantity }`: enviar `unitPrice`, `name` o `category` devuelve 400, y un SKU
+desconocido o inactivo devuelve 422 `UNKNOWN_SKU` (`details.skus`). El servidor toma nombre, categoría y
+precio de la colección de productos; si la moneda del producto no coincide con `context.currency`, 422
+`CURRENCY_MISMATCH`. El snapshot de auditoría guarda los ítems ya resueltos, así que cambiar un precio
+después no altera las auditorías anteriores.
+
 `context.userId` es opcional: el servidor lo toma del token (un cliente que envía otro valor recibe 403
-`USER_MISMATCH`). Devuelve `auditId, cartId, currency, subtotal, appliedRules[], skippedRules[], totalDiscount, total, calculatedAt`.
+`USER_MISMATCH`). Devuelve `auditId, cartId, items[], currency, subtotal, appliedRules[], skippedRules[],
+totalDiscount, total, calculatedAt` y `finalTotal` (`total` menos el descuento del cupón). Si se envió
+`couponCode`, también `coupon { code, discountAmount, reservationId, remainingUses, expiresAt }`: la
+reserva del cupón y la escritura de la auditoría ocurren en una sola transacción, de modo que si una
+falla `remainingUses` no cambia. Errores del cupón: los mismos que en `/coupons/apply`.
 
 ### GET /api/v1/pricing/audit/:auditId
 
@@ -204,14 +231,84 @@ curl localhost:3000/api/v1/pricing/audit/<uuid> -H "Authorization: Bearer $TOKEN
 
 ```bash
 curl -X POST localhost:3000/api/v1/coupons/apply -H 'content-type: application/json' \
-  -H "Authorization: Bearer $TOKEN" -d '{ "code": "WELCOME10", "cartId": "cart-1", "subtotal": 20000 }'
+  -H "Authorization: Bearer $TOKEN" -d '{ "code": "WELCOME10", "auditId": "<uuid de una auditoría propia>" }'
 ```
+
+El subtotal es `result.total` de la auditoría y el carrito es su `cartId`; el cliente no puede enviar
+`subtotal` (400). Una auditoría ajena o inexistente devuelve 404 `AUDIT_NOT_FOUND`. Responde 201 con
+`status: "RESERVED"`, `reservationId`, `discountAmount`, `newTotal`, `remainingUses` y `expiresAt`.
 
 Un cupón puede estar ligado a un usuario (`userId`): cualquier otra persona recibe 404
 `COUPON_NOT_FOUND`, igual que con un código desconocido, para que no se puedan adivinar los códigos. Un
 cupón de un solo uso (`maxUses` 1) se consume al aplicarse y los intentos posteriores reciben 409
-`COUPON_EXHAUSTED`. Errores: 404 `COUPON_NOT_FOUND`, 409 `COUPON_UNAVAILABLE` /
-`COUPON_ALREADY_APPLIED` / `COUPON_EXHAUSTED`, 422 `MIN_SUBTOTAL_NOT_MET`, 400 `VALIDATION_ERROR`.
+`COUPON_EXHAUSTED`. Errores: 404 `COUPON_NOT_FOUND` / `AUDIT_NOT_FOUND`, 409 `COUPON_UNAVAILABLE` /
+`COUPON_ALREADY_APPLIED` / `COUPON_EXHAUSTED` / `COUPON_LIMIT_REACHED`, 422 `MIN_SUBTOTAL_NOT_MET`,
+400 `VALIDATION_ERROR`.
+
+**Límite por usuario.** `perUserLimit` (entero de 1 a 1000, por defecto 1) es el máximo de reservas
+activas (`RESERVED` y no vencidas) que un usuario puede tener de ese cupón; al alcanzarlo, 409
+`COUPON_LIMIT_REACHED`. Es seguro bajo concurrencia: dentro de la transacción se descuenta primero
+`remainingUses` y después se cuentan las reservas activas del usuario; el conflicto de escritura sobre
+el documento del cupón serializa las transacciones simultáneas.
+
+### Frontera de confianza: reserva vs. compra final
+
+`RESERVED` no es `PAID`. Una reserva solo aparta un uso del cupón; no cobra ni cierra ninguna compra, y
+`/coupons/apply` no se debe presentar como el checkout final. Qué confía cada paso:
+
+| Paso                      | El cliente envía                            | Lo decide el servidor                                                                            |
+| ------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `POST /pricing/calculate` | `sku`, `quantity`, `couponCode?`, `region?` | precio unitario (catálogo), descuentos, envío, total, nivel del cliente (guardado en el usuario) |
+| `POST /coupons/apply`     | `code`, `auditId`                           | subtotal (`result.total` de la auditoría propia), descuento, `RESERVED`                          |
+| `POST /orders`            | `auditId`, contacto, dirección              | recálculo completo; `PRICE_CHANGED` si difiere; `RESERVED` -> `CONSUMED` en la misma transacción |
+
+Contrato server-authoritative (base para E3): ningún importe, precio, descuento, nivel ni estado de
+cupón viene del cliente; el pedido solo acepta una auditoría propia y vigente, y los campos de tarjeta
+dan 400. El pago real (`PAID`) queda fuera de alcance: el pedido de demostración responde
+`payment: "DEMO_NOT_CHARGED"`.
+
+Evidencia real en `docs/evidence/EVIDENCE.md` (generada con `npm run evidence`):
+
+| Caso                                      | Escenario      | Resultado                                                                      |
+| ----------------------------------------- | -------------- | ------------------------------------------------------------------------------ |
+| Éxito: reserva, todavía sin compra        | 9 (también 38) | 201 `status: "RESERVED"`                                                       |
+| Éxito: pedido, el cupón pasa a `CONSUMED` | 48             | 201 `CONFIRMED`, `payment: "DEMO_NOT_CHARGED"`, `grandTotal` igual al cotizado |
+| Error: el cliente intenta enviar tarjeta  | 47             | 400 `VALIDATION_ERROR`, nada se guarda                                         |
+| Reintento del mismo pedido                | 49             | mismo `orderNumber` (idempotente)                                              |
+
+Una auditoría ajena da 404 `AUDIT_NOT_FOUND` y un `subtotal` enviado por el cliente a `/coupons/apply`
+da 400.
+
+### Ciclo de vida de la reserva
+
+Cada reserva tiene `status` (`RESERVED` o `RELEASED`) y `expiresAt` (ahora + `RESERVATION_TTL_SECONDS`).
+
+Reglas de aplicación (verificadas dentro de la transacción y con índices únicos parciales sobre las
+reservas `RESERVED`):
+
+- Un solo cupón activo por auditoría y por carrito (y usuario), sea el mismo código u otro, ya sea con
+  `POST /coupons/apply` o con `couponCode` en `/pricing/calculate`: 409 `COUPON_ALREADY_APPLIED`.
+  Liberar o dejar vencer la reserva libera el lugar.
+- `POST /pricing/calculate` con `couponCode` comparte el límite de tasa por usuario de los cupones (429).
+- Cada cupón tiene `currency` (por defecto `USD`, solo 3 letras mayúsculas); si difiere de la moneda de
+  la auditoría o del carrito, 422 `CURRENCY_MISMATCH`. La moneda de productos y de `context.currency`
+  también se valida como `^[A-Z]{3}$` tras pasar a mayúsculas.
+- `POST /coupons/apply` rechaza auditorías más viejas que `AUDIT_QUOTE_TTL_SECONDS` con 409
+  `AUDIT_STALE`: hay que recalcular el carrito.
+- Nota: el bloque `coupon` de una auditoría es válido solo mientras su reserva siga activa (`RESERVED`
+  y no vencida). La auditoría es inmutable y no cambia al liberar o vencer la reserva; quien consuma una
+  auditoría como cotización debe comprobar el estado de la reserva (`coupon.reservationId`).
+
+- `DELETE /api/v1/coupons/reservations/:id` (solo el dueño) devuelve la reserva a `RELEASED` y restaura
+  exactamente un uso: 200 `{ status: "RELEASED", reservationId, remainingUses }`. Una reserva ajena o
+  inexistente da 404 `RESERVATION_NOT_FOUND`; una ya liberada, 409 `RESERVATION_NOT_ACTIVE`.
+- `releaseExpiredReservations(now)` libera las reservas vencidas de forma idempotente y nunca deja
+  `remainingUses` por encima de `maxUses`. `src/server.ts` la ejecuta en un intervalo con `unref()`, así
+  que no impide que el proceso termine. Una reserva vencida que aún no se barrió tampoco bloquea el
+  mismo carrito ni cuenta para el límite por usuario.
+- El índice único `{couponCode, cartId}` es parcial (solo `RESERVED`), por lo que un carrito puede
+  reservar de nuevo el cupón después de liberarlo. En bases existentes, `initModels()` sincroniza los
+  índices de reservas para reemplazar el índice único anterior.
 
 ### Catálogo de administración y respaldo
 
@@ -228,9 +325,14 @@ endsAt, isActive, conditions { minSubtotal, skus, categories, customerTiers, reg
   las campañas `global` sin regiones. `PUT` / `DELETE /campaigns/:code/regions/:region` agregan o quitan
   una región de forma atómica (idempotente). Quitar la última región devuelve 409 `LAST_REGION`: una
   lista vacía haría que la campaña aplique en todas partes, así que mejor se desactiva.
-- `POST /coupons` cuerpo: `code, discountType, value, maxUses, minSubtotal, expiresAt, isActive, userId?`.
-  `remainingUses` empieza en `maxUses`. `PATCH /coupons/:code` cambia `isActive`, `expiresAt`,
-  `minSubtotal`.
+- `POST /coupons` cuerpo: `code, discountType, value, maxUses, minSubtotal, expiresAt, isActive, userId?,
+perUserLimit?` (1..1000, por defecto 1). `remainingUses` empieza en `maxUses`. `PATCH /coupons/:code`
+  cambia `isActive`, `expiresAt`, `minSubtotal`, `perUserLimit`.
+- `GET /products`, `POST /products` (`sku, name, category, unitPrice` en centavos, `currency` por defecto
+  USD, `isActive`; `sku` se guarda en mayúsculas; 409 `PRODUCT_EXISTS`) y `PATCH /products/:sku` (subconjunto
+  estricto y no vacío de `name, category, unitPrice, currency, isActive`; 404 `PRODUCT_NOT_FOUND`).
+  `npm run seed` crea seis productos de ejemplo (`SKU-LAPTOP`, `SKU-PHONE`, `SKU-HEADPHONES`,
+  `SKU-KEYBOARD`, `SKU-MOUSE`, `SKU-CABLE`).
 - `GET /audits/:auditId` devuelve el snapshot más `checksumValid` (sha256 recalculado al leer, así que
   se detectan ediciones accidentales o simples hechas fuera de la API; ver Limitaciones conocidas).
   `GET /audits/export?format=csv|json&from=&to=` es el respaldo (fechas ISO, `from` no posterior a `to`,
@@ -239,6 +341,15 @@ endsAt, isActive, conditions { minSubtotal, skus, categories, customerTiers, reg
 - Precios por región: envía `context.region` (por ejemplo `CN`) a `/pricing/calculate`; las campañas con
   `conditions.regions` aplican solo para esas regiones, y si no se omiten con `REGION_NOT_ELIGIBLE`. Los
   precios por temporada son solo rangos de fechas que el admin define cada año.
+
+### Envío, pedidos, campañas activas y nivel del cliente
+
+- `POST /api/v1/pricing/calculate` acepta `delivery` (`standard` o `express`, solo USD) y devuelve además `lineTotal` por ítem, `savings`, `shippingOptions`, `shipping`, `grandTotal` (solo con `delivery`) y `nextThreshold`. El envío estándar es gratis cuando `finalTotal >= 10000` centavos. Volver a calcular con el mismo cupón en el mismo carrito libera la reserva anterior y emite una nueva sin consumir un uso extra.
+- `GET /api/v1/campaigns/active` lista hasta 5 campañas vigentes visibles para el nivel del usuario (solo campos seguros).
+- `POST /api/v1/orders` crea un pedido de demostración desde un `auditId`: el servidor vuelve a calcular todo (`PRICE_CHANGED` si cambió), consume la reserva del cupón (`CONSUMED`) y es idempotente por auditoría. No se aceptan campos de tarjeta ni se cobra nada (`DEMO_NOT_CHARGED`).
+- El nivel (`standard`, `gold`, `platinum`) se guarda en el usuario y el servidor ignora `context.customerTier` del cliente. Para una demo: `npm run set-tier -- usuario@ejemplo.com gold`.
+- Imágenes de producto: `imageUrl` solo se acepta si es `https://res.cloudinary.com/<CLOUDINARY_CLOUD_NAME>/image/upload/...` (se rechazan `/image/fetch/` y los demás tipos de entrega; la CSP limita `img-src` a esa ruta). Sin la variable `CLOUDINARY_CLOUD_NAME` (vacía en `.env.example`) toda imagen se rechaza. No hay credenciales en el repositorio.
+- Al arrancar, si el índice `couponCode_1_cartId_1` de `couponreservations` no es el índice único parcial (`status: "RESERVED"`), se reemplaza; si hay reservas `RESERVED` duplicadas que impiden crearlo, se liberan las más antiguas y se registra una línea en el log.
 
 ### GET /health
 

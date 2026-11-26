@@ -2,12 +2,14 @@ import { loadEnv } from '../config/env';
 import { connectDatabase, disconnectDatabase } from '../config/database';
 import { initModels } from '../models';
 import { Campaign } from '../models/campaign.model';
+import { Product } from '../models/product.model';
 import { Coupon } from '../models/coupon.model';
 import { CouponReservation } from '../models/couponReservation.model';
 import { User } from '../models/user.model';
 import { createUser } from '../services/user.service';
 import type { Env } from '../config/env';
-import { buildCampaigns, buildCoupons } from './seedData';
+import { CATALOG, buildCampaigns, buildCoupons } from './seedData';
+import { seedRefusal } from './seedGuard';
 
 export async function seedDatabase(now: Date = new Date()): Promise<void> {
   await initModels();
@@ -15,9 +17,11 @@ export async function seedDatabase(now: Date = new Date()): Promise<void> {
     Campaign.deleteMany({}),
     Coupon.deleteMany({}),
     CouponReservation.deleteMany({}),
+    Product.deleteMany({}),
   ]);
   await Campaign.insertMany(buildCampaigns(now));
   await Coupon.insertMany(buildCoupons(now));
+  await Product.insertMany(CATALOG);
 }
 
 async function seedAdmin(env: Env): Promise<void> {
@@ -35,10 +39,22 @@ async function seedAdmin(env: Env): Promise<void> {
 
 async function main(): Promise<void> {
   const env = loadEnv();
+  const force = process.argv.includes('--force');
+  const refusal = seedRefusal(env.NODE_ENV, env.MONGODB_URI, force);
+  if (refusal) {
+    console.error(
+      `Seed refused: ${refusal}. It deletes products, campaigns, coupons and reservations. ` +
+        'Use only on a development database; to override on purpose run: npm run seed -- --force',
+    );
+    process.exit(1);
+  }
+  console.log(`Seeding the database${force ? ' (--force)' : ''}`);
   await connectDatabase(env.MONGODB_URI);
   await seedDatabase();
   await seedAdmin(env);
-  console.log('Seed complete: campaigns, coupons and reservations reset (audits untouched)');
+  console.log(
+    'Seed complete: products, campaigns, coupons and reservations reset (audits untouched)',
+  );
   await disconnectDatabase();
 }
 

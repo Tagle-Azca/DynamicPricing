@@ -26,6 +26,7 @@ describe('register [DoD-1, DoD-2]', () => {
       id: expect.any(String),
       email: 'alice@example.com',
       role: 'customer',
+      tier: 'standard',
     });
     expect(JSON.stringify(res.body)).not.toContain('passwordHash');
     const stored = await User.findOne({ email: 'alice@example.com' }).select('+passwordHash');

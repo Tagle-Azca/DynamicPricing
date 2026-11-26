@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import type { AuthService } from '../services/auth.service';
 import type { LoginRequest, RegisterRequest } from '../dtos/auth.dto';
+import { getUserTier } from '../services/user.tier';
 import { AppError } from '../errors/AppError';
 
 export interface AuthController {
@@ -21,7 +22,7 @@ export function createAuthController(service: AuthService): AuthController {
     },
     async me(req, res): Promise<void> {
       if (!req.auth) throw new AppError(401, 'AUTH_REQUIRED', 'Authentication required');
-      res.status(200).json({ data: req.auth });
+      res.status(200).json({ data: { ...req.auth, tier: await getUserTier(req.auth.sub) } });
     },
   };
 }

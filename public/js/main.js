@@ -1,76 +1,93 @@
 import { $ } from './dom.js';
 import { setSessionLostHandler } from './api.js';
 import { initAuth } from './auth.js';
-import { initCart } from './cart.js';
-import { initPricing } from './pricing.js';
-import { initCoupon } from './coupon.js';
-import { initCampaigns, loadCampaigns } from './admin-campaigns.js';
-import { initCoupons, loadCoupons } from './admin-coupons.js';
-import { initMap, loadMap, clearMap } from './admin-map.js';
-import { initAudits, loadAudits } from './admin-audits.js';
+import { createCatalog } from './catalog.js';
+import { createCart } from './cart-store.js';
+import { createQuote } from './quote.js';
+import { loadBannerCampaign } from './campaigns.js';
+import { initBanner } from './banner.js';
+import { initProductGrid } from './product-grid.js';
+import { initDrawer } from './drawer.js';
+import { initCheckout } from './checkout.js';
+import { initShell } from './shell.js';
+import { currentRoute, go, onRouteChange, resolveView } from './router.js';
+import { initAdmin } from './admin-boot.js';
 
-const views = ['auth', 'shop', 'admin'];
+const catalog = createCatalog();
+const cart = createCart();
+const quote = createQuote(cart);
+const campaignRef = { current: null };
+const shell = initShell(cart);
+const grid = initProductGrid(catalog, cart);
+const banner = initBanner(cart, quote, campaignRef);
+const drawer = initDrawer({ cart, quote, catalog, campaignRef, opener: $('cart-btn') });
+const checkout = initCheckout({ cart, quote, catalog });
+const admin = initAdmin(() => grid.load());
 
-function show(name) {
-  for (const v of views) $(`view-${v}`).hidden = v !== name;
-  for (const tab of document.querySelectorAll('.tab')) {
-    tab.setAttribute('aria-pressed', String(tab.dataset.view === name));
-  }
+let user = null;
+let adminOpen = false;
+
+// One place decides what is visible. Not logged in always shows the auth view.
+function render() {
+  const view = resolveView({
+    user,
+    route: currentRoute(),
+    cartEmpty: cart.isEmpty(),
+    confirmed: checkout.isConfirmed(),
+    adminOpen,
+  });
+  if (view === 'redirect') return document.location.replace('#/');
+  shell.show(view, Boolean(user));
+  if (view === 'admin') admin.load();
+  if (view === 'checkout') checkout.enter();
 }
 
-const cart = initCart(() => {
-  coupon.reset();
-  pricing.schedule();
-});
-const pricing = initPricing(cart);
-const coupon = initCoupon(cart, pricing);
-initCampaigns();
-initMap(loadCampaigns);
-initCoupons();
-initAudits();
-
-let adminLoaded = false;
-
-function loginView(user) {
-  $('session').hidden = false;
-  $('tabs').hidden = false;
-  $('session-user').textContent = `${user.email} (${user.role})`;
-  const isAdmin = user.role === 'admin';
-  document.querySelector('.tab[data-view="admin"]').hidden = !isAdmin;
-  adminLoaded = false;
-  show('shop');
+async function loginView(u) {
+  user = u;
+  adminOpen = false;
+  $('session-user').textContent = u.email;
+  document.querySelector('.nav-pill[data-view="admin"]').hidden = u.role !== 'admin';
+  checkout.setUser(u);
+  render();
+  campaignRef.current = await loadBannerCampaign();
+  banner.render();
+  grid.load();
 }
 
 function logoutView() {
+  drawer.close(false);
+  user = null;
+  adminOpen = false;
+  quote.forget();
   cart.reset();
-  pricing.reset();
-  coupon.reset();
-  adminLoaded = false;
-  clearMap();
-  for (const id of ['campaigns-table', 'coupons-table', 'audits-table']) $(id).replaceChildren();
-  $('session').hidden = true;
-  $('tabs').hidden = true;
+  checkout.reset();
+  catalog.reset();
+  campaignRef.current = null;
+  banner.render();
+  admin.clear();
   $('session-user').textContent = '';
-  document.querySelector('.tab[data-view="admin"]').hidden = true;
-  show('auth');
+  document.location.hash = '#/';
+  render();
   $('auth-email').focus();
 }
 
-const auth = initAuth({ onLogin: loginView, onLogout: logoutView });
+const auth = initAuth({
+  onLogin: loginView,
+  onLogout: logoutView,
+  beforeLogout: () => quote.releaseHeld(),
+});
 setSessionLostHandler((err) => auth.sessionLost(err));
 
-for (const tab of document.querySelectorAll('.tab')) {
-  tab.addEventListener('click', () => {
-    const name = tab.dataset.view;
-    show(name);
-    if (name === 'admin' && !adminLoaded) {
-      adminLoaded = true;
-      loadMap();
-      loadCampaigns();
-      loadCoupons();
-      loadAudits();
-    }
+for (const pill of document.querySelectorAll('.nav-pill')) {
+  pill.addEventListener('click', () => {
+    adminOpen = pill.dataset.view === 'admin';
+    if (currentRoute() !== 'shop') go('shop');
+    else render();
   });
 }
-
-show('auth');
+onRouteChange(() => {
+  drawer.close(false);
+  if (currentRoute() === 'shop') adminOpen = false;
+  render();
+});
+render();

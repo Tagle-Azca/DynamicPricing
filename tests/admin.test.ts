@@ -5,6 +5,7 @@ import { buildApp, closeDatabase, openDatabase } from './helpers/app';
 import { bearer, createTestUser } from './helpers/users';
 import type { TestUser } from './helpers/users';
 import { cart, seedPricingData } from './helpers/fixtures';
+import { apply, newAudit } from './helpers/pricing';
 import { PricingAudit } from '../src/models/pricingAudit.model';
 
 let app: Express;
@@ -122,25 +123,16 @@ describe('user-bound coupons', () => {
     expect(created.status).toBe(201);
     expect(created.body.data.remainingUses).toBe(1);
 
-    const body = { code: 'ALICE-ONLY', cartId: 'c-1', subtotal: 10000 };
-    const denied = await request(app)
-      .post('/api/v1/coupons/apply')
-      .set(...bearer(bob.token))
-      .send(body);
+    const bobAudit = await newAudit(app, bob, 'c-1');
+    const denied = await apply(app, bob, 'ALICE-ONLY', bobAudit);
     expect(denied.status).toBe(404);
     expect(denied.body.error.code).toBe('COUPON_NOT_FOUND');
 
-    const ok = await request(app)
-      .post('/api/v1/coupons/apply')
-      .set(...bearer(alice.token))
-      .send(body);
-    expect(ok.status).toBe(200);
+    const ok = await apply(app, alice, 'ALICE-ONLY', await newAudit(app, alice, 'c-1a'));
+    expect(ok.status).toBe(201);
     expect(ok.body.data.remainingUses).toBe(0);
 
-    const again = await request(app)
-      .post('/api/v1/coupons/apply')
-      .set(...bearer(alice.token))
-      .send({ ...body, cartId: 'c-2' });
+    const again = await apply(app, alice, 'ALICE-ONLY', await newAudit(app, alice, 'c-2'));
     expect(again.status).toBe(409);
     expect(again.body.error.code).toBe('COUPON_EXHAUSTED');
   });
@@ -151,11 +143,8 @@ describe('user-bound coupons', () => {
       .set(...bearer(admin.token))
       .send({ isActive: false });
     expect(res.status).toBe(200);
-    const apply = await request(app)
-      .post('/api/v1/coupons/apply')
-      .set(...bearer(alice.token))
-      .send({ code: 'WELCOME10', cartId: 'c-3', subtotal: 10000 });
-    expect(apply.body.error.code).toBe('COUPON_UNAVAILABLE');
+    const res2 = await apply(app, alice, 'WELCOME10', await newAudit(app, alice, 'c-3'));
+    expect(res2.body.error.code).toBe('COUPON_UNAVAILABLE');
   });
 });
 

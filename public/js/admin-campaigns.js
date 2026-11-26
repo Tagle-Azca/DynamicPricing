@@ -2,6 +2,7 @@ import { $, formatDate, h, money, renderTable, setBusy, setStatus } from './dom.
 import { request, describeError } from './api.js';
 import { csv, int, toIso } from './admin-form.js';
 import { refreshMap } from './admin-map.js';
+import { askConfirm } from './confirm.js';
 
 const status = () => $('campaigns-status');
 
@@ -33,7 +34,7 @@ export async function loadCampaigns() {
               class: 'btn small secondary',
               'aria-label': `${c.isActive ? 'Deactivate' : 'Activate'} campaign ${c.code}`,
               text: c.isActive ? 'Deactivate' : 'Activate',
-              onClick: (e) => toggle(c, e.currentTarget),
+              onClick: (e) => guarded(c, e.currentTarget),
             }),
         },
       ],
@@ -44,6 +45,11 @@ export async function loadCampaigns() {
   } catch (err) {
     setStatus(status(), describeError(err), 'error');
   }
+}
+
+function guarded(c, button) {
+  if (!c.isActive) return toggle(c, button);
+  askConfirm(button, `Deactivate campaign ${c.code}?`, 'Deactivate', () => toggle(c, button));
 }
 
 async function toggle(c, button) {

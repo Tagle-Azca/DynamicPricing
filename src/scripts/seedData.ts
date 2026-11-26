@@ -1,7 +1,23 @@
 import type { CampaignDoc } from '../models/campaign.model';
 import type { CouponDoc } from '../models/coupon.model';
+import type { ProductDoc } from '../models/product.model';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+export const CATALOG: ProductDoc[] = [
+  { sku: 'SKU-LAPTOP', name: 'Laptop 14"', category: 'electronics', unitPrice: 120000 },
+  { sku: 'SKU-PHONE', name: 'Smartphone', category: 'electronics', unitPrice: 80000 },
+  { sku: 'SKU-HEADPHONES', name: 'Wireless headphones', category: 'audio', unitPrice: 15000 },
+  { sku: 'SKU-KEYBOARD', name: 'Mechanical keyboard', category: 'accessories', unitPrice: 2500 },
+  { sku: 'SKU-MOUSE', name: 'Optical mouse', category: 'accessories', unitPrice: 1500 },
+  { sku: 'SKU-CABLE', name: 'USB-C cable', category: 'accessories', unitPrice: 1000 },
+  { sku: 'SKU-MONITOR', name: 'Ultrawide monitor 34"', category: 'electronics', unitPrice: 45000 },
+  { sku: 'SKU-TABLET', name: 'Tablet 11"', category: 'electronics', unitPrice: 35000 },
+  { sku: 'SKU-WATCH', name: 'Smartwatch', category: 'electronics', unitPrice: 20000 },
+  { sku: 'SKU-SPEAKER', name: 'Bluetooth speaker', category: 'audio', unitPrice: 6000 },
+  { sku: 'SKU-WEBCAM', name: 'HD webcam', category: 'accessories', unitPrice: 4500 },
+  { sku: 'SKU-CHARGER', name: 'Fast charger 65W', category: 'accessories', unitPrice: 3500 },
+].map((p) => ({ ...p, currency: 'USD', isActive: true }));
 
 export function buildCampaigns(now: Date): CampaignDoc[] {
   const past = new Date(now.getTime() - 30 * DAY_MS);
@@ -85,7 +101,13 @@ export function buildCampaigns(now: Date): CampaignDoc[] {
 
 export function buildCoupons(now: Date): CouponDoc[] {
   const future = new Date(now.getTime() + 365 * DAY_MS);
-  const base = { expiresAt: future, isActive: true, minSubtotal: 0 };
+  const base = {
+    expiresAt: future,
+    isActive: true,
+    minSubtotal: 0,
+    perUserLimit: 1,
+    currency: 'USD',
+  };
   return [
     {
       ...base,
@@ -95,7 +117,15 @@ export function buildCoupons(now: Date): CouponDoc[] {
       maxUses: 1000,
       remainingUses: 1000,
     },
-    { ...base, code: 'FLASH5', discountType: 'fixed', value: 500, maxUses: 5, remainingUses: 5 },
+    {
+      ...base,
+      code: 'FLASH5',
+      discountType: 'fixed',
+      value: 500,
+      maxUses: 5,
+      remainingUses: 5,
+      perUserLimit: 5,
+    },
     {
       ...base,
       code: 'EXPIRED20',

@@ -5,6 +5,8 @@ import { buildApp, closeDatabase, openDatabase } from './helpers/app';
 import { bearer, createTestUser } from './helpers/users';
 import type { TestUser } from './helpers/users';
 import { cart, seedPricingData } from './helpers/fixtures';
+import { apply, newAudit } from './helpers/pricing';
+import { Product } from '../src/models/product.model';
 import { calculatePricing } from '../src/services/pricing.service';
 import { exportAudits } from '../src/services/audit.query.service';
 import { auditsToCsv } from '../src/services/audit.csv';
@@ -68,23 +70,21 @@ describe('input validation', () => {
     expect((await get('from=2030-01-01&to=2020-01-01')).status).toBe(400);
   });
 
-  it('S7: quantity and unitPrice are capped', async () => {
+  it('S7: quantity is capped and client-supplied prices are rejected', async () => {
     const send = (item: object): request.Test =>
       request(app)
         .post('/api/v1/pricing/calculate')
         .set(...bearer(alice.token))
-        .send({
-          ...cart,
-          items: [{ sku: 'S', category: 'c', unitPrice: 1, quantity: 1, ...item }],
-        });
+        .send({ ...cart, items: [{ sku: 'SKU-MOUSE', quantity: 1, ...item }] });
     expect((await send({ quantity: 10001 })).status).toBe(400);
-    expect((await send({ unitPrice: 1_000_000_001 })).status).toBe(400);
-    expect((await send({ unitPrice: 1_000_000_000, quantity: 10000 })).status).toBe(200);
+    expect((await send({ unitPrice: 1 })).status).toBe(400);
+    expect((await send({ quantity: 10000 })).status).toBe(200);
   });
 
   it('S7: calculatePricing rejects an unsafe subtotal with 422 AMOUNT_TOO_LARGE', async () => {
-    const huge = { ...cart, items: [{ ...cart.items[0]!, unitPrice: 9e15, quantity: 2 }] };
-    await expect(calculatePricing(huge as never)).rejects.toMatchObject({
+    await Product.create({ sku: 'SKU-HUGE', name: 'Huge', category: 'c', unitPrice: 9e15 });
+    const huge = { ...cart, items: [{ sku: 'SKU-HUGE', quantity: 2 }] };
+    await expect(calculatePricing(huge as never, 900)).rejects.toMatchObject({
       statusCode: 422,
       code: 'AMOUNT_TOO_LARGE',
     });
@@ -136,10 +136,7 @@ describe('coupon ownership and export', () => {
       isActive: false,
       userId: alice.id,
     });
-    const res = await request(app)
-      .post('/api/v1/coupons/apply')
-      .set(...bearer(bob.token))
-      .send({ code: 'ONLYALICE', cartId: 'x', subtotal: 1000 });
+    const res = await apply(app, bob, 'ONLYALICE', await newAudit(app, bob, 'x'));
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('COUPON_NOT_FOUND');
   });

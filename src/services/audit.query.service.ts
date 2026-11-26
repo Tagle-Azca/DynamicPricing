@@ -3,7 +3,7 @@ import { PricingAudit } from '../models/pricingAudit.model';
 import { AppError } from '../errors/AppError';
 import type { AuditSnapshot } from '../dtos/audit.dto';
 import type { ExportAuditsQuery, ListAuditsQuery } from '../dtos/adminAudit.dto';
-import { computeChecksum } from './audit.checksum';
+import { checksumSnapshot, computeChecksum } from './audit.checksum';
 
 export async function listAudits(query: ListAuditsQuery): Promise<AuditSnapshot[]> {
   const filter: Record<string, string> = {};
@@ -17,8 +17,7 @@ export async function listAudits(query: ListAuditsQuery): Promise<AuditSnapshot[
 }
 
 export function isChecksumValid(a: AuditSnapshot): boolean {
-  const { auditId, cartId, context, items, result } = a;
-  return computeChecksum({ auditId, cartId, context, items, result }) === a.checksum;
+  return computeChecksum(checksumSnapshot(a)) === a.checksum;
 }
 
 export async function getAuditVerified(

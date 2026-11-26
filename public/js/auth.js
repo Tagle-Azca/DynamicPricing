@@ -2,7 +2,7 @@ import { $, setBusy, setStatus } from './dom.js';
 import { request, setToken, describeError } from './api.js';
 
 // Handles login/register/logout. onLogin(user) receives the /auth/me principal.
-export function initAuth({ onLogin, onLogout }) {
+export function initAuth({ onLogin, onLogout, beforeLogout = () => {} }) {
   const form = $('auth-form');
   const status = $('auth-status');
   const buttons = [$('login-btn'), $('register-btn')];
@@ -29,6 +29,7 @@ export function initAuth({ onLogin, onLogout }) {
   }
 
   async function run(action) {
+    if (buttons[0].disabled) return;
     const creds = credentials();
     if (!creds) return;
     busy(true);
@@ -50,14 +51,15 @@ export function initAuth({ onLogin, onLogout }) {
   });
   $('register-btn').addEventListener('click', () => run('register'));
   $('logout').addEventListener('click', () => {
+    beforeLogout(); // the token is still valid here, so a held coupon can be released
     setToken(null);
     onLogout();
   });
 
   return {
-    sessionLost(err) {
+    sessionLost() {
       onLogout();
-      setStatus(status, `Session ended (${err.code}). Please log in again.`, 'error');
+      setStatus(status, 'Your session expired. Please log in again.', 'error');
     },
   };
 }

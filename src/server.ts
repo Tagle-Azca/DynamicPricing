@@ -4,6 +4,7 @@ import { appConfigFromEnv } from './config/appConfig';
 import { connectDatabase, disconnectDatabase } from './config/database';
 import { initModels } from './models';
 import { createApp } from './app';
+import { startReservationSweeper } from './services/reservation.sweeper';
 
 async function shutdown(server: Server, signal: string): Promise<void> {
   console.log(`${signal} received, shutting down gracefully`);
@@ -17,6 +18,7 @@ async function main(): Promise<void> {
   const env = loadEnv();
   await connectDatabase(env.MONGODB_URI);
   await initModels();
+  startReservationSweeper();
   const server = createApp(appConfigFromEnv(env)).listen(env.PORT, () => {
     console.log(`Server listening on port ${env.PORT}`);
   });

@@ -43,7 +43,7 @@ describe('token validation [DoD-5]', () => {
   it('accepts a valid token', async () => {
     const res = await callMe(`Bearer ${user.token}`);
     expect(res.status).toBe(200);
-    expect(res.body.data).toEqual({ sub: user.id, role: 'customer' });
+    expect(res.body.data).toEqual({ sub: user.id, role: 'customer', tier: 'standard' });
   });
 
   it('returns 401 TOKEN_EXPIRED for an expired token', async () => {

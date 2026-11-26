@@ -33,7 +33,7 @@ export function createAuthService(tokens: TokenService, rounds: number): AuthSer
         accessToken: tokens.sign(principal),
         tokenType: 'Bearer',
         expiresIn: tokens.ttlSeconds,
-        user: { id: principal.sub, email: user.email, role: user.role },
+        user: { id: principal.sub, email: user.email, role: user.role, tier: user.tier },
       };
     },
   };

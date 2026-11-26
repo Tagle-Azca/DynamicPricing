@@ -3,31 +3,64 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="light dark" />
-    <title>Dynamic Pricing Console</title>
+    <meta name="color-scheme" content="light" />
+    <title>Dynamic Pricing</title>
+    <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/theme.css" />
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/shop.css" />
+    <link rel="stylesheet" href="/checkout.css" />
     <script type="module" src="/js/main.js"></script>
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
-    <header class="topbar">
-      <h1 class="brand">Dynamic Pricing</h1>
-      <nav id="tabs" class="tabs" aria-label="Sections" hidden>
-        <button type="button" class="tab" data-view="shop" aria-pressed="true">Shop</button>
-        <button type="button" class="tab" data-view="admin" aria-pressed="false" hidden>
-          Admin
-        </button>
-      </nav>
-      <div id="session" class="session" hidden>
-        <span id="session-user" class="muted"></span>
-        <button type="button" id="logout" class="btn secondary">Log out</button>
+    <header id="site-header" class="site-header">
+      <div class="header-in">
+        <a class="logo" href="#/" aria-label="Dynamic Pricing, home">
+          <span class="logo-mark" id="logo-mark"></span>
+          <span class="logo-text">Dynamic Pricing</span>
+        </a>
+        <nav id="site-nav" class="nav" aria-label="Sections" hidden>
+          <button type="button" class="nav-pill" data-view="shop" aria-current="page">Shop</button>
+          <button type="button" class="nav-pill" data-view="admin" aria-current="false" hidden>
+            Admin
+          </button>
+        </nav>
+        <div id="header-end" class="header-end" hidden>
+          <span id="session-user" class="user-email"></span>
+          <button type="button" id="logout" class="pill small">Log out</button>
+          <button
+            type="button"
+            id="cart-btn"
+            class="pill cart-pill"
+            aria-haspopup="dialog"
+            aria-expanded="false"
+            aria-controls="drawer"
+            aria-label="Open cart, empty"
+          >
+            <span id="cart-icon"></span>Cart<span id="cart-count" class="count-badge" hidden
+              >0</span
+            >
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <header id="checkout-header" class="site-header" hidden>
+      <div class="header-in">
+        <a class="logo" href="#/" aria-label="Dynamic Pricing, back to shop">
+          <span class="logo-mark" id="logo-mark-2"></span>
+          <span class="logo-text">Dynamic Pricing</span>
+        </a>
+        <p class="secure"><span id="lock-icon"></span>Secure checkout</p>
+        <a class="pill small" href="#/"><span id="back-icon"></span>Back to shop</a>
       </div>
     </header>
 
     <main id="main" tabindex="-1">
       <section id="view-auth" class="narrow" aria-labelledby="auth-title">
         <div class="card">
-          <h2 id="auth-title">Sign in</h2>
+          <h1 id="auth-title" class="auth-title">Sign in</h1>
           <p class="muted">The session lives in memory only; reloading the page logs you out.</p>
           <form id="auth-form" novalidate>
             <label for="auth-email">Email</label>
@@ -46,8 +79,22 @@
               Registering requires at least 12 characters (72 bytes max).
             </p>
             <div class="row">
-              <button type="submit" id="login-btn" class="btn" data-action="login">Log in</button>
-              <button type="button" id="register-btn" class="btn secondary" data-action="register">
+              <button
+                type="submit"
+                id="login-btn"
+                class="btn"
+                data-action="login"
+                data-busy-label="Logging in..."
+              >
+                Log in
+              </button>
+              <button
+                type="button"
+                id="register-btn"
+                class="btn secondary"
+                data-action="register"
+                data-busy-label="Creating account..."
+              >
                 Register as customer
               </button>
             </div>
@@ -56,191 +103,405 @@
         </div>
       </section>
 
-      <section id="view-shop" class="grid-shop" aria-label="Shop" hidden>
-        <div class="card">
-          <h2>Products</h2>
-          <ul id="catalog" class="list"></ul>
+      <section id="view-shop" class="shop" aria-label="Shop" hidden>
+        <h1 class="sr-only">Shop</h1>
+        <div id="banner" class="banner" hidden></div>
+        <div class="products-head">
+          <h2 class="section-title">Products</h2>
+          <p id="product-count" class="muted count"></p>
+          <div id="chips" class="chips" role="group" aria-label="Filter by category"></div>
         </div>
+        <p id="catalog-status" class="status" role="alert"></p>
+        <button type="button" id="catalog-retry" class="pill" hidden>Retry</button>
+        <ul id="catalog" class="grid"></ul>
+      </section>
 
-        <div class="card">
-          <h2>Cart</h2>
-          <p class="muted">Cart id: <code id="cart-id"></code></p>
-          <ul id="cart" class="list"></ul>
-          <p id="cart-empty" class="muted">The cart is empty. Add a product.</p>
-          <div class="row">
-            <div class="field">
-              <label for="tier">Customer tier</label>
-              <select id="tier">
-                <option value="standard">standard</option>
-                <option value="gold">gold</option>
-                <option value="platinum">platinum</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="region">Region</label>
-              <select id="region">
-                <option value="">none</option>
-                <option>CN</option>
-                <option>HK</option>
-                <option>SG</option>
-                <option>AU</option>
-                <option>AR</option>
-                <option>CL</option>
-                <option>MX</option>
-                <option>US</option>
-              </select>
-            </div>
-          </div>
-          <button type="button" id="clear-cart" class="btn secondary">Clear cart</button>
+      <section id="view-checkout" aria-labelledby="checkout-title" hidden>
+        <h1 id="checkout-title" class="sr-only">Checkout</h1>
+        <div id="checkout-layout" class="checkout-layout">
+          <div id="checkout-steps" class="checkout-steps"></div>
+          <div id="checkout-summary" class="checkout-summary"></div>
         </div>
-
-        <div class="card">
-          <h2>Price breakdown</h2>
-          <p id="calc-status" class="status" role="status" aria-live="polite"></p>
-          <div id="breakdown" aria-live="polite"></div>
-          <h3>Coupon</h3>
-          <form id="coupon-form" novalidate>
-            <label for="coupon-code">Coupon code</label>
-            <div class="row">
-              <input id="coupon-code" name="code" type="text" maxlength="64" autocomplete="off" />
-              <button type="submit" id="coupon-btn" class="btn">Apply</button>
-            </div>
-          </form>
-          <p id="coupon-status" class="status" role="alert"></p>
-          <div id="coupon-result" aria-live="polite"></div>
-        </div>
+        <div id="checkout-done" hidden></div>
       </section>
 
       <section id="view-admin" aria-label="Admin" hidden>
-        <div class="card">
-          <h2>Discount map</h2>
-          <p class="hint">Hover, focus or click a country to see and edit its discounts.</p>
-          <ul class="legend" aria-label="Map legend">
-            <li><span class="swatch swatch-active" aria-hidden="true"></span>Active discount</li>
-            <li>
-              <span class="swatch swatch-inactive" aria-hidden="true"></span>Only inactive or
-              expired
-            </li>
-            <li><span class="swatch swatch-none" aria-hidden="true"></span>No discounts</li>
-          </ul>
-          <p id="map-status" class="status" role="alert"></p>
-          <div class="map-box">
-            <div id="map" class="map"></div>
-            <div id="map-tip" class="map-tip" role="tooltip" hidden></div>
-          </div>
-          <p id="map-global" class="hint"></p>
-          <div
-            id="map-panel"
-            class="map-panel"
-            role="region"
-            aria-label="Edit country"
-            hidden
-          ></div>
+        <div class="subtabs" role="tablist" aria-label="Admin sections">
+          <button
+            type="button"
+            class="subtab"
+            role="tab"
+            id="subtab-map"
+            aria-controls="panel-map"
+            aria-selected="true"
+          >
+            Map &amp; Campaigns
+          </button>
+          <button
+            type="button"
+            class="subtab"
+            role="tab"
+            id="subtab-coupons"
+            aria-controls="panel-coupons"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            Coupons
+          </button>
+          <button
+            type="button"
+            class="subtab"
+            role="tab"
+            id="subtab-products"
+            aria-controls="panel-products"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            Products
+          </button>
+          <button
+            type="button"
+            class="subtab"
+            role="tab"
+            id="subtab-audits"
+            aria-controls="panel-audits"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            Audits
+          </button>
         </div>
 
-        <div class="card">
-          <h2>Campaigns</h2>
-          <p id="campaigns-status" class="status" role="alert"></p>
-          <div class="table-wrap"><table id="campaigns-table"></table></div>
-          <details class="create">
-            <summary>New campaign</summary>
-            <form id="campaign-form" class="form-grid" novalidate>
-              <p class="hint span">
-                Amounts are integer cents. Percentage value is 0 to 100. Leave regions empty for a
-                global campaign.
-              </p>
+        <div id="panel-map" role="tabpanel" aria-labelledby="subtab-map" class="panel">
+          <div class="card">
+            <h2>Discount map</h2>
+            <p class="hint">Hover, focus or click a country to see and edit its discounts.</p>
+            <ul class="legend" aria-label="Map legend">
+              <li><span class="swatch swatch-active" aria-hidden="true"></span>Active discount</li>
+              <li>
+                <span class="swatch swatch-inactive" aria-hidden="true"></span>Only inactive or
+                expired
+              </li>
+              <li><span class="swatch swatch-none" aria-hidden="true"></span>No discounts</li>
+            </ul>
+            <p id="map-status" class="status" role="alert"></p>
+            <div class="map-box">
+              <div id="map" class="map"></div>
+              <div id="map-tip" class="map-tip" role="tooltip" hidden></div>
+            </div>
+            <p id="map-global" class="hint"></p>
+            <div
+              id="map-panel"
+              class="map-panel"
+              role="region"
+              aria-label="Edit country"
+              hidden
+            ></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h2>Campaigns</h2>
+              <button
+                type="button"
+                class="btn"
+                data-create-toggle
+                aria-expanded="false"
+                aria-controls="campaign-new"
+              >
+                + New campaign
+              </button>
+              <div id="campaign-new" class="create-panel" hidden>
+                <form id="campaign-form" class="form-grid" novalidate>
+                  <p class="hint span">
+                    Amounts are integer cents. Percentage value is 0 to 100. Leave regions empty for
+                    a global campaign.
+                  </p>
+                  <div class="field">
+                    <label for="c-code">Code</label
+                    ><input id="c-code" name="code" required maxlength="64" />
+                  </div>
+                  <div class="field">
+                    <label for="c-name">Name</label
+                    ><input id="c-name" name="name" required maxlength="200" />
+                  </div>
+                  <div class="field">
+                    <label for="c-type">Type</label>
+                    <select id="c-type" name="type">
+                      <option>percentage</option>
+                      <option>fixed</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="c-value">Value</label
+                    ><input id="c-value" name="value" type="number" min="0" step="1" required />
+                  </div>
+                  <div class="field">
+                    <label for="c-starts">Starts at</label
+                    ><input id="c-starts" name="startsAt" type="datetime-local" required />
+                  </div>
+                  <div class="field">
+                    <label for="c-ends">Ends at</label
+                    ><input id="c-ends" name="endsAt" type="datetime-local" required />
+                  </div>
+                  <div class="field span">
+                    <label for="c-regions">Regions (optional, e.g. MX, US)</label
+                    ><input id="c-regions" name="regions" />
+                  </div>
+                  <div class="span row">
+                    <button type="submit" class="btn" data-busy-label="Creating...">
+                      Create campaign
+                    </button>
+                    <button type="reset" class="btn secondary">Cancel</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+            <p id="campaigns-status" class="status" role="alert"></p>
+            <div class="table-wrap"><table id="campaigns-table"></table></div>
+          </div>
+        </div>
+
+        <div
+          id="panel-coupons"
+          role="tabpanel"
+          aria-labelledby="subtab-coupons"
+          class="panel"
+          hidden
+        >
+          <div class="card">
+            <div class="card-head">
+              <h2>Coupons</h2>
+              <button
+                type="button"
+                class="btn"
+                data-create-toggle
+                aria-expanded="false"
+                aria-controls="coupon-new"
+              >
+                + New coupon
+              </button>
+              <div id="coupon-new" class="create-panel" hidden>
+                <form id="coupon-create-form" class="form-grid" novalidate>
+                  <div class="field">
+                    <label for="k-code">Code</label
+                    ><input id="k-code" name="code" required maxlength="64" />
+                  </div>
+                  <div class="field">
+                    <label for="k-type">Type</label>
+                    <select id="k-type" name="discountType">
+                      <option>percentage</option>
+                      <option>fixed</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="k-value">Value</label
+                    ><input id="k-value" name="value" type="number" min="0" step="1" required />
+                  </div>
+                  <div class="field">
+                    <label for="k-uses">Max uses</label
+                    ><input id="k-uses" name="maxUses" type="number" min="1" step="1" required />
+                  </div>
+                  <div class="field">
+                    <label for="k-per-user">Per-user limit (default 1)</label
+                    ><input
+                      id="k-per-user"
+                      name="perUserLimit"
+                      type="number"
+                      min="1"
+                      max="1000"
+                      step="1"
+                    />
+                  </div>
+                  <div class="field">
+                    <label for="k-exp">Expires at</label
+                    ><input id="k-exp" name="expiresAt" type="datetime-local" required />
+                  </div>
+                  <div class="field">
+                    <label for="k-user">User id (optional)</label
+                    ><input id="k-user" name="userId" maxlength="128" />
+                  </div>
+                  <div class="span row">
+                    <button type="submit" class="btn" data-busy-label="Creating...">
+                      Create coupon
+                    </button>
+                    <button type="reset" class="btn secondary">Cancel</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+            <p id="coupons-status" class="status" role="alert"></p>
+            <div class="table-wrap"><table id="coupons-table"></table></div>
+          </div>
+        </div>
+
+        <div
+          id="panel-products"
+          role="tabpanel"
+          aria-labelledby="subtab-products"
+          class="panel"
+          hidden
+        >
+          <div class="card">
+            <div class="card-head">
+              <h2>Products</h2>
+              <button
+                type="button"
+                class="btn"
+                data-create-toggle
+                aria-expanded="false"
+                aria-controls="product-new"
+              >
+                + New product
+              </button>
+              <div id="product-new" class="create-panel" hidden>
+                <form id="product-create-form" class="form-grid" novalidate>
+                  <p class="hint span">Price is an integer number of cents.</p>
+                  <div class="field">
+                    <label for="p-sku">SKU</label
+                    ><input id="p-sku" name="sku" required maxlength="64" />
+                  </div>
+                  <div class="field">
+                    <label for="p-name">Name</label
+                    ><input id="p-name" name="name" required maxlength="200" />
+                  </div>
+                  <div class="field">
+                    <label for="p-category">Category</label
+                    ><input id="p-category" name="category" required maxlength="64" />
+                  </div>
+                  <div class="field">
+                    <label for="p-price">Price (cents)</label
+                    ><input id="p-price" name="unitPrice" type="number" min="0" step="1" required />
+                  </div>
+                  <div class="field">
+                    <label for="p-currency">Currency (default USD)</label
+                    ><input id="p-currency" name="currency" maxlength="3" />
+                  </div>
+                  <div class="field span">
+                    <label for="p-image">Image URL (optional, Cloudinary)</label
+                    ><input id="p-image" name="imageUrl" type="url" maxlength="500" />
+                  </div>
+                  <div class="span row">
+                    <button type="submit" class="btn" data-busy-label="Creating...">
+                      Create product
+                    </button>
+                    <button type="reset" class="btn secondary">Cancel</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+            <div id="product-edit" class="create-panel" hidden>
+              <form id="product-edit-form" class="form-grid" novalidate>
+                <h3 id="product-edit-title" class="span" tabindex="-1">Edit product</h3>
+                <p class="hint span">
+                  The SKU cannot change. Price is an integer number of cents (<output
+                    id="pe-price-preview"
+                  ></output
+                  >). Leave the image empty to remove it.
+                </p>
+                <div class="field">
+                  <label for="pe-name">Name</label
+                  ><input id="pe-name" name="name" required maxlength="200" />
+                </div>
+                <div class="field">
+                  <label for="pe-category">Category</label
+                  ><input id="pe-category" name="category" required maxlength="64" />
+                </div>
+                <div class="field">
+                  <label for="pe-price">Price (cents)</label
+                  ><input id="pe-price" name="unitPrice" type="number" min="0" step="1" required />
+                </div>
+                <div class="field">
+                  <label for="pe-currency">Currency</label
+                  ><input id="pe-currency" name="currency" maxlength="3" required />
+                </div>
+                <div class="field span">
+                  <label for="pe-image">Image URL (Cloudinary)</label
+                  ><input id="pe-image" name="imageUrl" type="url" maxlength="500" />
+                </div>
+                <div class="field span edit-preview">
+                  <span class="muted">Image preview</span>
+                  <span id="pe-preview"></span>
+                </div>
+                <label class="span check"
+                  ><input type="checkbox" name="isActive" /> Active (shown in the shop)</label
+                >
+                <div class="span row">
+                  <button type="submit" class="btn" data-busy-label="Saving...">
+                    Save changes
+                  </button>
+                  <button type="button" id="pe-cancel" class="btn secondary">Cancel</button>
+                </div>
+              </form>
+            </div>
+            <div class="filter-bar" role="search" aria-label="Filter products">
               <div class="field">
-                <label for="c-code">Code</label
-                ><input id="c-code" name="code" required maxlength="64" />
+                <label for="pf-search">Search</label
+                ><input id="pf-search" type="search" placeholder="SKU or name" maxlength="100" />
               </div>
               <div class="field">
-                <label for="c-name">Name</label
-                ><input id="c-name" name="name" required maxlength="200" />
-              </div>
-              <div class="field">
-                <label for="c-type">Type</label>
-                <select id="c-type" name="type">
-                  <option>percentage</option>
-                  <option>fixed</option>
+                <label for="pf-category">Category</label
+                ><select id="pf-category">
+                  <option value="">All</option>
                 </select>
               </div>
               <div class="field">
-                <label for="c-value">Value</label
-                ><input id="c-value" name="value" type="number" min="0" step="1" required />
-              </div>
-              <div class="field">
-                <label for="c-starts">Starts at</label
-                ><input id="c-starts" name="startsAt" type="datetime-local" required />
-              </div>
-              <div class="field">
-                <label for="c-ends">Ends at</label
-                ><input id="c-ends" name="endsAt" type="datetime-local" required />
-              </div>
-              <div class="field span">
-                <label for="c-regions">Regions (optional, e.g. MX, US)</label
-                ><input id="c-regions" name="regions" />
-              </div>
-              <div class="span"><button type="submit" class="btn">Create campaign</button></div>
-            </form>
-          </details>
-        </div>
-
-        <div class="card">
-          <h2>Coupons</h2>
-          <p id="coupons-status" class="status" role="alert"></p>
-          <div class="table-wrap"><table id="coupons-table"></table></div>
-          <details class="create">
-            <summary>New coupon</summary>
-            <form id="coupon-create-form" class="form-grid" novalidate>
-              <div class="field">
-                <label for="k-code">Code</label
-                ><input id="k-code" name="code" required maxlength="64" />
-              </div>
-              <div class="field">
-                <label for="k-type">Type</label>
-                <select id="k-type" name="discountType">
-                  <option>percentage</option>
-                  <option>fixed</option>
+                <label for="pf-active">Status</label
+                ><select id="pf-active">
+                  <option value="">All</option>
+                  <option value="yes">Active</option>
+                  <option value="no">Inactive</option>
                 </select>
               </div>
-              <div class="field">
-                <label for="k-value">Value</label
-                ><input id="k-value" name="value" type="number" min="0" step="1" required />
-              </div>
-              <div class="field">
-                <label for="k-uses">Max uses</label
-                ><input id="k-uses" name="maxUses" type="number" min="1" step="1" required />
-              </div>
-              <div class="field">
-                <label for="k-exp">Expires at</label
-                ><input id="k-exp" name="expiresAt" type="datetime-local" required />
-              </div>
-              <div class="field">
-                <label for="k-user">User id (optional)</label
-                ><input id="k-user" name="userId" maxlength="128" />
-              </div>
-              <div class="span"><button type="submit" class="btn">Create coupon</button></div>
-            </form>
-          </details>
+              <p id="products-count" class="muted" aria-live="polite"></p>
+            </div>
+            <p id="products-status" class="status" role="alert"></p>
+            <div class="table-wrap"><table id="products-table"></table></div>
+          </div>
         </div>
 
-        <details class="card audits">
-          <summary>Audits</summary>
-          <div class="row">
-            <button type="button" id="export-json" class="btn secondary">Export JSON</button>
-            <button type="button" id="export-csv" class="btn secondary">Export CSV</button>
+        <div id="panel-audits" role="tabpanel" aria-labelledby="subtab-audits" class="panel" hidden>
+          <div class="card">
+            <div class="card-head">
+              <h2>Audits</h2>
+              <div class="row">
+                <button type="button" id="export-json" class="btn secondary">Export JSON</button>
+                <button type="button" id="export-csv" class="btn secondary">Export CSV</button>
+              </div>
+            </div>
+            <p id="audits-status" class="status" role="alert"></p>
+            <div class="table-wrap"><table id="audits-table"></table></div>
           </div>
-          <p id="audits-status" class="status" role="alert"></p>
-          <div class="table-wrap"><table id="audits-table"></table></div>
-        </details>
+        </div>
       </section>
     </main>
 
     <footer class="footer">
       <p>
-        Demo only: the API has no product catalog yet, so product names and prices come from this
-        client. Money is shown from integer cents.
+        Demo only. Products and every price shown here come from the server. Money is shown from
+        integer cents.
       </p>
     </footer>
+
+    <div id="drawer-root" class="drawer-root" aria-hidden="true">
+      <div id="drawer-backdrop" class="backdrop"></div>
+      <aside
+        id="drawer"
+        class="drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="drawer-title"
+      >
+        <div class="drawer-head">
+          <h2 id="drawer-title">Your cart</h2>
+          <button type="button" id="drawer-close" class="icon-btn" aria-label="Close cart">
+            <span id="close-icon"></span>
+          </button>
+        </div>
+        <div id="drawer-progress" class="drawer-progress"></div>
+        <div id="drawer-body" class="drawer-body"></div>
+        <div id="drawer-foot" class="drawer-foot"></div>
+      </aside>
+    </div>
   </body>
 </html>

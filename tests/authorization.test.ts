@@ -63,7 +63,9 @@ describe('public vs protected endpoints [DoD-10]', () => {
     const calls = [
       request(app).post('/api/v1/pricing/calculate').send(cart),
       request(app).get('/api/v1/pricing/audit/00000000-0000-4000-8000-000000000000'),
-      request(app).post('/api/v1/coupons/apply').send({ code: 'A', cartId: 'c', subtotal: 1 }),
+      request(app)
+        .post('/api/v1/coupons/apply')
+        .send({ code: 'A', auditId: '00000000-0000-4000-8000-000000000000' }),
       request(app).get(LIST),
     ];
     for (const res of await Promise.all(calls)) {

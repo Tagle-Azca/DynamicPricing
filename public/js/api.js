@@ -81,15 +81,4 @@ export async function download(path, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function describeError(err) {
-  if (!(err instanceof ApiError)) return 'Unexpected error.';
-  let text = `${err.code}: ${err.message}`;
-  if (err.details !== undefined && err.details !== null) {
-    try {
-      text += ` ${JSON.stringify(err.details)}`;
-    } catch {
-      /* ignore unserializable details */
-    }
-  }
-  return text;
-}
+export { describeError } from './errors.js';

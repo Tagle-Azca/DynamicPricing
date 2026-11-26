@@ -1,4 +1,5 @@
-:root {
+/* Admin keeps its original tokens (light and dark); other views use theme.css. */
+body.admin-mode {
   color-scheme: light dark;
   --bg: #f5f6f8;
   --surface: #ffffff;
@@ -15,11 +16,13 @@
   --map-active: #17703a;
   --map-inactive: #b06a00;
   --radius: 8px;
+  --btn-radius: 8px;
+  --font-head: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  body.admin-mode {
     --bg: #12141a;
     --surface: #1b1e27;
     --text: #e8eaf0;
@@ -99,29 +102,6 @@ code {
   left: 0;
 }
 
-.topbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem 1.5rem;
-  padding: 0.75rem 1.25rem;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
-.brand {
-  font-size: 1.15rem;
-  margin: 0;
-}
-.tabs {
-  display: flex;
-  gap: 0.5rem;
-}
-.session {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
 [hidden] {
   display: none !important;
 }
@@ -138,15 +118,132 @@ main:focus {
   max-width: 28rem;
   margin: 2rem auto;
 }
-.grid-shop {
+#view-admin,
+.panel {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: start;
 }
-#view-admin {
+.subtabs {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: end;
+  margin: 0.75rem 0;
+}
+.filter-bar .field {
+  flex: 1 1 10rem;
+}
+.filter-bar .muted {
+  margin: 0 0 0.5rem;
+}
+.edit-preview #pe-preview {
+  display: block;
+  width: 96px;
+  height: 96px;
+}
+.edit-preview #pe-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.row-thumb {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.row-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+tr.is-editing td {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.subtab {
+  flex: none;
+  min-height: 44px;
+  padding: 0.25rem 1rem;
+  font: inherit;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+}
+.subtab[aria-selected='true'] {
+  color: var(--text);
+  font-weight: 700;
+  border-bottom-color: var(--accent);
+}
+.card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+.card-head h2 {
+  margin: 0;
+}
+.create-panel {
+  flex-basis: 100%;
+  padding: 0.5rem 1rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+details summary {
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+details.small-details {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+}
+.meta {
   display: grid;
-  gap: 1rem;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  color: var(--muted);
+}
+.meta dd {
+  margin: 0;
+}
+.skipped {
+  margin-top: 1rem;
+}
+.skipped .item {
+  align-items: baseline;
+}
+.confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.confirm-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.btn.danger {
+  color: var(--accent-text);
+  background: var(--error);
+  border-color: var(--error);
 }
 .card {
   background: var(--surface);
@@ -233,7 +330,7 @@ input.qty {
   color: var(--accent-text);
   background: var(--accent);
   border: 1px solid var(--accent);
-  border-radius: var(--radius);
+  border-radius: var(--btn-radius, var(--radius));
   cursor: pointer;
 }
 .btn.secondary {
@@ -252,20 +349,6 @@ input.qty {
   opacity: 0.55;
   cursor: not-allowed;
 }
-.tab {
-  min-height: 44px;
-  padding: 0.25rem 1rem;
-  font: inherit;
-  color: var(--text);
-  background: transparent;
-  border: 0;
-  border-bottom: 3px solid transparent;
-  cursor: pointer;
-}
-.tab[aria-pressed='true'] {
-  border-bottom-color: var(--accent);
-  font-weight: 700;
-}
 
 .list {
   list-style: none;
@@ -274,6 +357,7 @@ input.qty {
 }
 .item {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 0;
@@ -436,35 +520,16 @@ th {
 .panel-title {
   margin: 0;
 }
-details.create {
-  margin-top: 1rem;
-}
-details.create summary,
-details.audits summary {
-  cursor: pointer;
-  font-weight: 600;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-}
 
 @media (max-width: 900px) {
-  .grid-shop {
-    grid-template-columns: 1fr;
-  }
   main {
     padding: 0.75rem;
   }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .btn,
-  .tab {
+  .btn {
     transition:
       filter 0.15s,
       border-color 0.15s;
   }
-}
-
-details.audits summary {
-  font-size: 1.25rem;
 }

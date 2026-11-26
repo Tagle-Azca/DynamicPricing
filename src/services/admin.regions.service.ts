@@ -62,7 +62,7 @@ export async function addRegion(code: string, region: string): Promise<unknown> 
   const updated = await Campaign.findOneAndUpdate(
     { code },
     { $addToSet: { 'conditions.regions': region } },
-    { new: true },
+    { returnDocument: 'after' },
   )
     .select(HIDE)
     .lean();
@@ -75,7 +75,7 @@ export async function removeRegion(code: string, region: string): Promise<unknow
   const pulled = await Campaign.findOneAndUpdate(
     { code, 'conditions.regions': mongoose.trusted({ $eq: region, $not: { $size: 1 } }) },
     { $pull: { 'conditions.regions': region } },
-    { new: true },
+    { returnDocument: 'after' },
   )
     .select(HIDE)
     .lean();

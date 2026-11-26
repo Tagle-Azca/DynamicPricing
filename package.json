@@ -14,6 +14,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "seed": "tsx src/scripts/seed.ts",
+    "set-tier": "tsx src/scripts/setTier.ts",
     "evidence": "tsx src/scripts/evidence/run.ts",
     "test": "vitest run"
   },

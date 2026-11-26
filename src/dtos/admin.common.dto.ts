@@ -9,6 +9,12 @@ export const upperCode = z
   .max(64)
   .transform((v) => v.toUpperCase());
 
+export const currencyCode = z
+  .string()
+  .trim()
+  .transform((v) => v.toUpperCase())
+  .pipe(z.string().regex(/^[A-Z]{3}$/, 'Expected a 3-letter currency code'));
+
 export const regionCode = z
   .string()
   .trim()

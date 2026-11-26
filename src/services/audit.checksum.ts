@@ -1,4 +1,30 @@
 import { createHash } from 'node:crypto';
+import type { ShippingOption } from '../config/shipping';
+import type { AuditCoupon, CartItem, PricingContext, PricingResult } from '../dtos/pricing.dto';
+
+export interface ChecksumParts {
+  auditId: string;
+  cartId: string;
+  context: PricingContext;
+  items: CartItem[];
+  result: PricingResult;
+  coupon?: AuditCoupon;
+  shipping?: ShippingOption;
+}
+
+/** Coupon and shipping join the checksummed snapshot only when present, so old audits verify. */
+export function checksumSnapshot(p: ChecksumParts): Record<string, unknown> {
+  const { auditId, cartId, context, items, result, coupon, shipping } = p;
+  return {
+    auditId,
+    cartId,
+    context,
+    items,
+    result,
+    ...(coupon ? { coupon } : {}),
+    ...(shipping ? { shipping } : {}),
+  };
+}
 
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize);

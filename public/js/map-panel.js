@@ -1,6 +1,7 @@
 // Small edit panel for one country: add or remove it on a chosen campaign.
 import { h, clear, setBusy, setStatus } from './dom.js';
 import { request, describeError, ApiError } from './api.js';
+import { askConfirm } from './confirm.js';
 
 const regionsOf = (c) => (c.conditions && c.conditions.regions) || [];
 
@@ -54,10 +55,15 @@ export function createPanel(node, { onChanged, onClose }) {
       setStatus(status, '');
       sync();
     });
-    action.addEventListener('click', async () => {
+    action.addEventListener('click', () => {
       const c = selected();
       if (!c) return;
-      const method = has() ? 'DELETE' : 'PUT';
+      if (!has()) return save(c, 'PUT');
+      askConfirm(action, `Remove ${code} from campaign ${c.code}?`, 'Remove', () =>
+        save(c, 'DELETE'),
+      );
+    });
+    async function save(c, method) {
       setBusy(action, true);
       setStatus(status, 'Saving...', 'info');
       try {
@@ -73,7 +79,7 @@ export function createPanel(node, { onChanged, onClose }) {
         setBusy(action, false);
         setStatus(status, friendly(err), 'error');
       }
-    });
+    }
     const close = h('button', {
       type: 'button',
       class: 'btn small secondary',

@@ -1,6 +1,7 @@
 import { $, formatDate, h, money, renderTable, setBusy, setStatus } from './dom.js';
 import { request, describeError } from './api.js';
 import { compact, int, toIso } from './admin-form.js';
+import { askConfirm } from './confirm.js';
 
 const status = () => $('coupons-status');
 
@@ -17,6 +18,7 @@ export async function loadCoupons() {
           cell: (c) => (c.discountType === 'percentage' ? `${c.value}%` : money(c.value)),
         },
         { label: 'Uses left', cell: (c) => `${c.remainingUses} / ${c.maxUses}` },
+        { label: 'Per user', cell: (c) => String(c.perUserLimit ?? 1) },
         { label: 'Expires', cell: (c) => formatDate(c.expiresAt) },
         { label: 'User', cell: (c) => c.userId || 'any' },
         { label: 'Active', cell: (c) => (c.isActive ? 'Yes' : 'No') },
@@ -28,7 +30,7 @@ export async function loadCoupons() {
               class: 'btn small secondary',
               'aria-label': `${c.isActive ? 'Deactivate' : 'Activate'} coupon ${c.code}`,
               text: c.isActive ? 'Deactivate' : 'Activate',
-              onClick: (e) => toggle(c, e.currentTarget),
+              onClick: (e) => guarded(c, e.currentTarget),
             }),
         },
       ],
@@ -39,6 +41,11 @@ export async function loadCoupons() {
   } catch (err) {
     setStatus(status(), describeError(err), 'error');
   }
+}
+
+function guarded(c, button) {
+  if (!c.isActive) return toggle(c, button);
+  askConfirm(button, `Deactivate coupon ${c.code}?`, 'Deactivate', () => toggle(c, button));
 }
 
 async function toggle(c, button) {
@@ -64,6 +71,7 @@ export function initCoupons() {
       discountType: f.discountType.value,
       value: int(f.value.value),
       maxUses: int(f.maxUses.value),
+      perUserLimit: int(f.perUserLimit.value),
       expiresAt: toIso(f.expiresAt.value),
       userId: f.userId.value.trim() || undefined,
     });

@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import type { CartItem, PricingContext, PricingResult } from './pricing.dto';
+import type { ShippingOption } from '../config/shipping';
+import type { AuditCoupon, CartItem, PricingContext, PricingResult } from './pricing.dto';
 
 export const auditParamsSchema = z.object({
   auditId: z.string().uuid(),
@@ -11,6 +12,8 @@ export interface AuditSnapshot {
   context: PricingContext;
   items: CartItem[];
   result: PricingResult;
+  coupon?: AuditCoupon;
+  shipping?: ShippingOption;
   checksum: string;
   createdAt: Date;
 }
