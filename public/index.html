@@ -390,6 +390,71 @@
                 </form>
               </div>
             </div>
+            <div id="product-edit" class="create-panel" hidden>
+              <form id="product-edit-form" class="form-grid" novalidate>
+                <h3 id="product-edit-title" class="span" tabindex="-1">Edit product</h3>
+                <p class="hint span">
+                  The SKU cannot change. Price is an integer number of cents (<output
+                    id="pe-price-preview"
+                  ></output
+                  >). Leave the image empty to remove it.
+                </p>
+                <div class="field">
+                  <label for="pe-name">Name</label
+                  ><input id="pe-name" name="name" required maxlength="200" />
+                </div>
+                <div class="field">
+                  <label for="pe-category">Category</label
+                  ><input id="pe-category" name="category" required maxlength="64" />
+                </div>
+                <div class="field">
+                  <label for="pe-price">Price (cents)</label
+                  ><input id="pe-price" name="unitPrice" type="number" min="0" step="1" required />
+                </div>
+                <div class="field">
+                  <label for="pe-currency">Currency</label
+                  ><input id="pe-currency" name="currency" maxlength="3" required />
+                </div>
+                <div class="field span">
+                  <label for="pe-image">Image URL (Cloudinary)</label
+                  ><input id="pe-image" name="imageUrl" type="url" maxlength="500" />
+                </div>
+                <div class="field span edit-preview">
+                  <span class="muted">Image preview</span>
+                  <span id="pe-preview"></span>
+                </div>
+                <label class="span check"
+                  ><input type="checkbox" name="isActive" /> Active (shown in the shop)</label
+                >
+                <div class="span row">
+                  <button type="submit" class="btn" data-busy-label="Saving...">
+                    Save changes
+                  </button>
+                  <button type="button" id="pe-cancel" class="btn secondary">Cancel</button>
+                </div>
+              </form>
+            </div>
+            <div class="filter-bar" role="search" aria-label="Filter products">
+              <div class="field">
+                <label for="pf-search">Search</label
+                ><input id="pf-search" type="search" placeholder="SKU or name" maxlength="100" />
+              </div>
+              <div class="field">
+                <label for="pf-category">Category</label
+                ><select id="pf-category">
+                  <option value="">All</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="pf-active">Status</label
+                ><select id="pf-active">
+                  <option value="">All</option>
+                  <option value="yes">Active</option>
+                  <option value="no">Inactive</option>
+                </select>
+              </div>
+              <p id="products-count" class="muted" aria-live="polite"></p>
+            </div>
             <p id="products-status" class="status" role="alert"></p>
             <div class="table-wrap"><table id="products-table"></table></div>
           </div>

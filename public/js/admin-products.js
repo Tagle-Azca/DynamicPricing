@@ -1,8 +1,10 @@
-import { $, h, money, renderTable, setBusy, setStatus } from './dom.js';
+import { $, setBusy, setStatus } from './dom.js';
 import { request } from './api.js';
 import { describeError } from './errors.js';
 import { compact, int } from './admin-form.js';
 import { askConfirm } from './confirm.js';
+import { closeEdit, initProductEdit, openEdit } from './admin-product-edit.js';
+import { fillCategories, renderProducts } from './admin-product-table.js';
 
 const status = () => $('products-status');
 let onChanged = () => {};
@@ -26,67 +28,20 @@ function toggle(p, button) {
   askConfirm(button, `Deactivate product ${p.sku}?`, 'Deactivate', run);
 }
 
-function priceEditor(p) {
-  const id = `price-${p.sku}`;
-  const input = h('input', {
-    id,
-    type: 'number',
-    min: 0,
-    step: 1,
-    value: p.unitPrice,
-    class: 'qty',
+let all = [];
+
+const renderRows = () =>
+  renderProducts(all, {
+    onEdit: (p, e) => openEdit(p, e.currentTarget.closest('tr'), e.currentTarget),
+    onToggle: (p, e) => toggle(p, e.currentTarget),
   });
-  return h(
-    'div',
-    { class: 'row' },
-    h('label', { class: 'sr-only', for: id, text: `New price in cents for ${p.sku}` }),
-    input,
-    h('button', {
-      type: 'button',
-      class: 'btn small',
-      text: 'Save price',
-      'data-busy-label': 'Saving...',
-      'aria-label': `Save price for ${p.sku}`,
-      onClick: (e) => {
-        const value = input.valueAsNumber;
-        if (!Number.isInteger(value) || value < 0) {
-          return setStatus(status(), 'Price must be a whole number of cents.', 'error');
-        }
-        patch(p, { unitPrice: value }, e.currentTarget);
-      },
-    }),
-  );
-}
 
 export async function loadProducts() {
   setStatus(status(), 'Loading products...', 'info');
   try {
-    const rows = await request('GET', '/admin/products');
-    renderTable(
-      $('products-table'),
-      [
-        { label: 'SKU', cell: (p) => p.sku },
-        { label: 'Name', cell: (p) => p.name },
-        { label: 'Category', cell: (p) => p.category },
-        { label: 'Price', cell: (p) => `${money(p.unitPrice)} ${p.currency}` },
-        { label: 'Image URL', cell: (p) => (p.imageUrl ? h('code', { text: p.imageUrl }) : '-') },
-        { label: 'Active', cell: (p) => (p.isActive ? 'Yes' : 'No') },
-        { label: 'Edit price (cents)', cell: priceEditor },
-        {
-          label: 'Action',
-          cell: (p) =>
-            h('button', {
-              type: 'button',
-              class: 'btn small secondary',
-              'aria-label': `${p.isActive ? 'Deactivate' : 'Activate'} product ${p.sku}`,
-              text: p.isActive ? 'Deactivate' : 'Activate',
-              onClick: (e) => toggle(p, e.currentTarget),
-            }),
-        },
-      ],
-      rows,
-      'Products',
-    );
+    all = await request('GET', '/admin/products');
+    fillCategories(all);
+    renderRows();
     setStatus(status(), '');
   } catch (err) {
     setStatus(status(), describeError(err), 'error');
@@ -95,6 +50,16 @@ export async function loadProducts() {
 
 export function initProducts(onProductsChanged) {
   onChanged = onProductsChanged;
+  for (const id of ['pf-search', 'pf-category', 'pf-active']) {
+    $(id).addEventListener('input', () => {
+      closeEdit();
+      renderRows();
+    });
+  }
+  initProductEdit(status, async () => {
+    await loadProducts();
+    onChanged();
+  });
   const form = $('product-create-form');
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

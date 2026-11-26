@@ -124,10 +124,52 @@ main:focus {
   gap: 1rem;
 }
 .subtabs {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   display: flex;
   gap: 0.25rem;
   overflow-x: auto;
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
+}
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: end;
+  margin: 0.75rem 0;
+}
+.filter-bar .field {
+  flex: 1 1 10rem;
+}
+.filter-bar .muted {
+  margin: 0 0 0.5rem;
+}
+.edit-preview #pe-preview {
+  display: block;
+  width: 96px;
+  height: 96px;
+}
+.edit-preview #pe-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.row-thumb {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.row-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+tr.is-editing td {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .subtab {
   flex: none;
