@@ -13,7 +13,10 @@ export async function applyCoupon(
   auditQuoteTtlSeconds: number,
   now: Date = new Date(),
 ): Promise<ApplyCouponResponse> {
-  const audit = await PricingAudit.findOne({ auditId: req.auditId, 'context.userId': userId })
+  const audit = await PricingAudit.findOne({
+    auditId: { $eq: req.auditId },
+    'context.userId': { $eq: userId },
+  })
     .select('-_id')
     .lean<AuditSnapshot>();
   if (!audit) throw new AppError(404, 'AUDIT_NOT_FOUND', `Audit ${req.auditId} not found`);

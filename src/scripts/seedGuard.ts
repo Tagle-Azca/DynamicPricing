@@ -24,7 +24,7 @@ export function seedRefusal(nodeEnv: string, uri: string, force: boolean): strin
   if (nodeEnv === 'production') return 'NODE_ENV=production';
   const { hosts } = parseMongoTarget(uri);
   if (hosts.length === 0 || !hosts.every((h) => LOCAL_HOSTS.has(h))) {
-    return `database host is not local (${hosts.join(', ') || 'unknown'})`;
+    return 'database host is not local';
   }
   return null;
 }

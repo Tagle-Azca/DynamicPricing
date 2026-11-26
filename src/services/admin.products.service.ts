@@ -12,7 +12,7 @@ export async function listProducts(): Promise<unknown[]> {
 export async function createProduct(input: CreateProduct): Promise<unknown> {
   const { imageUrl: rawImage, ...rest } = input;
   const imageUrl = resolveImageUrl(rawImage);
-  if (await Product.exists({ sku: input.sku })) {
+  if (await Product.exists({ sku: { $eq: input.sku } })) {
     throw new AppError(409, 'PRODUCT_EXISTS', `Product ${input.sku} already exists`);
   }
   try {
@@ -23,7 +23,9 @@ export async function createProduct(input: CreateProduct): Promise<unknown> {
     }
     throw err;
   }
-  return Product.findOne({ sku: input.sku }).select(FIELDS).lean();
+  return Product.findOne({ sku: { $eq: input.sku } })
+    .select(FIELDS)
+    .lean();
 }
 
 export async function updateProduct(sku: string, patch: UpdateProduct): Promise<unknown> {
@@ -33,7 +35,7 @@ export async function updateProduct(sku: string, patch: UpdateProduct): Promise<
     $set: { ...rest, ...(imageUrl ? { imageUrl } : {}) },
     ...(imageUrl === null ? { $unset: { imageUrl: 1 as const } } : {}),
   };
-  const updated = await Product.findOneAndUpdate({ sku }, update, { new: true })
+  const updated = await Product.findOneAndUpdate({ sku: { $eq: sku } }, update, { new: true })
     .select(FIELDS)
     .lean();
   if (!updated) throw new AppError(404, 'PRODUCT_NOT_FOUND', `Product ${sku} not found`);

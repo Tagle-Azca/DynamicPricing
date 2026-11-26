@@ -9,7 +9,7 @@ import { User } from '../models/user.model';
 import { createUser } from '../services/user.service';
 import type { Env } from '../config/env';
 import { CATALOG, buildCampaigns, buildCoupons } from './seedData';
-import { parseMongoTarget, seedRefusal } from './seedGuard';
+import { seedRefusal } from './seedGuard';
 
 export async function seedDatabase(now: Date = new Date()): Promise<void> {
   await initModels();
@@ -48,8 +48,7 @@ async function main(): Promise<void> {
     );
     process.exit(1);
   }
-  const { database } = parseMongoTarget(env.MONGODB_URI);
-  console.log(`Seeding database "${database || '(default)'}"${force ? ' (--force)' : ''}`);
+  console.log(`Seeding the database${force ? ' (--force)' : ''}`);
   await connectDatabase(env.MONGODB_URI);
   await seedDatabase();
   await seedAdmin(env);

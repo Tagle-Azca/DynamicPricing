@@ -35,7 +35,7 @@ export async function reserveCoupon(
   session: ClientSession,
 ): Promise<ReserveResult> {
   const { code, userId, cartId, auditId, subtotal, currency, now, ttlSeconds } = input;
-  const coupon = await Coupon.findOne({ code }).session(session);
+  const coupon = await Coupon.findOne({ code: { $eq: code } }).session(session);
   if (!coupon || (coupon.userId && coupon.userId !== userId)) {
     throw new AppError(404, 'COUPON_NOT_FOUND', `Coupon ${code} not found`);
   }
@@ -72,7 +72,7 @@ export async function reserveCoupon(
 
   // Consumed reservations are completed orders and keep counting toward the per-user limit.
   const active = await CouponReservation.countDocuments({
-    couponCode: code,
+    couponCode: { $eq: code },
     userId,
     $or: [
       { status: 'RESERVED', expiresAt: mongoose.trusted({ $gt: now }) },

@@ -33,7 +33,10 @@ export function toOrderBody(doc: OrderDoc): OrderBody {
 }
 
 async function loadOwnedAudit(auditId: string, userId: string): Promise<AuditSnapshot> {
-  const audit = await PricingAudit.findOne({ auditId, 'context.userId': userId })
+  const audit = await PricingAudit.findOne({
+    auditId: { $eq: auditId },
+    'context.userId': { $eq: userId },
+  })
     .select('-_id')
     .lean<AuditSnapshot>();
   if (!audit) throw new AppError(404, 'AUDIT_NOT_FOUND', `Audit ${auditId} not found`);
